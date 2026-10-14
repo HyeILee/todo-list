@@ -1,0 +1,11 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "django",
+  "buildCommand": "python manage.py migrate --noinput && python manage.py bootstrap_initial_user && python manage.py sync_holidays --skip-on-error && python manage.py collectstatic --noinput",
+  "functions": {
+    "config/wsgi.py": {
+      "maxDuration": 60,
+      "excludeFiles": "{scripts/**,docs/**,tasks/test_*.py,.deployment-tools/**,change-backups/**,data/**,dist/**}"
+    }
+  }
+}

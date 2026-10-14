@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}사진첩 · To-do List{% endblock %}
+{% block content %}
+<section class="listing-page photo-album" data-photo-album data-manifest-url="{% url 'photo_manifest' %}">
+  <span class="eyebrow">PHOTO ALBUM</span>
+  <div class="section-top"><div><h1>사진첩</h1><p>{{ photo_count }}장의 사진이 있습니다.</p></div><button class="button primary" type="button" data-download-photos {% if not total_photo_count %}disabled{% endif %}>ZIP으로 전체 저장</button></div>
+  <nav class="photo-category-filter" aria-label="사진 분류 필터"><a href="{% url 'photo_album' %}" class="{% if not selected_category %}selected{% endif %}">전체</a>{% for value,label in photo_categories %}<a href="?category={{ value }}" class="{% if selected_category == value %}selected{% endif %}">{{ label }}</a>{% endfor %}</nav>
+  <p class="export-warning">내려받은 ZIP 파일은 평문입니다. 공용 PC의 다운로드 폴더를 확인하세요.</p>
+  <p class="hint" data-zip-status role="status" aria-live="polite"></p>
+  <p class="hint photo-delete-status" data-photo-delete-status role="status" aria-live="polite"></p>
+  {% if page_obj.object_list %}
+    {% regroup page_obj.object_list by record_date as photo_days %}
+    {% for day in photo_days %}<section class="album-day"><h2><a href="{% url 'day' day.grouper|date:'Y-m-d' %}">{{ day.grouper|date:'Y년 n월 j일 l' }}</a></h2><div class="album-grid">{% for photo in day.list %}<figure><a href="{% url 'photo_content' photo.id %}" target="_blank" rel="noopener"><img src="{% url 'photo_content' photo.id %}" alt="{{ photo.original_name }}" loading="lazy"></a><figcaption><span class="photo-category photo-category-{{ photo.category|lower }}">{{ photo.get_category_display }}</span><span class="photo-name">{{ photo.original_name }}</span></figcaption><form class="photo-card-actions" method="post" action="{% url 'photo_delete' photo.id %}" data-photo-delete-form data-photo-name="{{ photo.original_name }}">{% csrf_token %}<input type="hidden" name="return_to" value="album"><input type="hidden" name="category" value="{{ selected_category }}"><input type="hidden" name="page" value="{{ page_obj.number }}"><button class="photo-delete-button" type="submit" aria-label="{{ photo.original_name }} 사진 삭제">삭제</button></form></figure>{% endfor %}</div></section>{% endfor %}
+    <nav class="pagination" aria-label="사진첩 페이지">{% if page_obj.has_previous %}<a class="button quiet" href="?{% if selected_category %}category={{ selected_category }}&amp;{% endif %}page={{ page_obj.previous_page_number }}">이전</a>{% endif %}<span>{{ page_obj.number }} / {{ page_obj.paginator.num_pages }}</span>{% if page_obj.has_next %}<a class="button quiet" href="?{% if selected_category %}category={{ selected_category }}&amp;{% endif %}page={{ page_obj.next_page_number }}">다음</a>{% endif %}</nav>
+  {% else %}<div class="empty"><p>{% if selected_category %}이 분류에 올린 사진이 없습니다.{% else %}아직 올린 사진이 없습니다.{% endif %}</p><a href="{% url 'home' %}">이날의 기록에 사진 올리기</a></div>{% endif %}
+</section>
+{% endblock %}

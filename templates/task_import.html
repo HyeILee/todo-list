@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}엑셀 일정 등록 · To-do List{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'task-import.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="listing-page import-page">
+  <span class="eyebrow">ADD YOUR PLANS</span>
+  <div class="section-top"><h1>엑셀 일정 등록</h1><a class="button quiet" href="{% url 'task_list' %}">전체 퀘스트로</a></div>
+  <p class="import-intro">엑셀에 적은 일정을 한 번에 추가해요. 파일을 올리면 먼저 내용을 확인할 수 있습니다.</p>
+  <div class="import-steps"><span><b>1</b> 양식 작성</span><span><b>2</b> 파일 확인</span><span><b>3</b> 일정 등록</span></div>
+  <div class="import-upload-grid">
+    <section class="import-panel"><h2>1. 양식 작성</h2><p>첫 번째 시트에 일정을 입력해 주세요. 사이트에서 내려받은 일정 Excel 파일도 사용할 수 있습니다.</p><a class="button quiet" href="{% url 'task_import_template' %}">등록 양식 다운로드</a><dl class="import-guide"><dt>필수</dt><dd>카테고리 · 해야 할 일</dd><dt>날짜</dt><dd>YYYY-MM-DD 또는 엑셀 날짜. 비우면 보관함에 등록합니다.</dd><dt>선택</dt><dd>상세 메모 · 상태(미정 / O / X / △) · 중요 여부(일반 / 중요)</dd></dl><p>사용 가능한 카테고리: {% for category in categories %}<strong>{{ category.name }}</strong>{% if not forloop.last %}, {% endif %}{% empty %}아직 없습니다.{% endfor %} <a href="{% url 'categories' %}">카테고리 관리</a></p></section>
+    <section class="import-panel"><h2>2. 파일 확인</h2><form method="post" enctype="multipart/form-data">{% csrf_token %}<div class="field"><label for="{{ form.workbook.id_for_label }}">{{ form.workbook.label }}</label>{{ form.workbook }}<small id="import-file-help">xlsx · 2MB 이하 · 최대 500건. 첫 번째 시트만 읽습니다. 수식은 값으로 바꿔 주세요.</small><div id="import-file-errors" class="form-error" role="alert">{% for error in form.workbook.errors %}<p>{{ error }}</p>{% endfor %}</div></div><button class="button primary" type="submit">내용 미리보기</button></form><p>파일을 올리는 단계에서는 일정이 추가되지 않습니다. 기존 일정·일기·사진은 덮어쓰지 않습니다.</p></section>
+  </div>
+  {% if page_error %}<div class="notice notice-warning" role="alert">{{ page_error }}</div>{% endif %}
+  {% if rows %}
+  <section class="import-preview" aria-labelledby="import-preview-title"><h2 id="import-preview-title">3. 등록할 일정 확인</h2><p class="import-filename">{{ filename }}</p><div class="import-summary"><span>총 <b>{{ total_count }}</b>건</span><span>새 일정 <b>{{ ready_count }}</b>건</span><span>중복 <b>{{ duplicate_count }}</b>건</span>{% if error_count %}<span class="form-error">오류 <b>{{ error_count }}</b>건</span>{% endif %}</div><p>같은 날짜·카테고리·제목의 일정은 중복으로 표시됩니다. 메모나 상태가 달라도 기존 일정은 수정하지 않습니다.</p>
+  <div class="import-table-scroll" tabindex="0" role="region" aria-label="엑셀 일정 미리보기"><table class="import-table"><caption class="visually-hidden">엑셀 행 번호와 등록할 일정, 중복 및 입력 오류</caption><thead><tr><th scope="col">행</th><th scope="col">날짜</th><th scope="col">카테고리</th><th scope="col">해야 할 일 · 메모</th><th scope="col">상태</th><th scope="col">중요</th><th scope="col">확인</th></tr></thead><tbody>{% for row in rows %}<tr class="{% if row.errors %}import-row-error{% elif row.duplicate %}import-row-duplicate{% endif %}"><td>{{ row.row_number }}</td><td>{{ row.date_display }}</td><td>{{ row.category_name }}</td><td class="import-copy"><strong>{{ row.title }}</strong>{% if row.details %}<details><summary>상세 메모</summary><p>{{ row.details|linebreaksbr }}</p></details>{% endif %}</td><td>{{ row.status_label }}</td><td>{% if row.is_important %}★{% else %}—{% endif %}</td><td>{% if row.errors %}{% for error in row.errors %}<p class="form-error">{{ error }}</p>{% endfor %}{% elif row.duplicate %}{{ row.duplicate }}<small>기본: 건너뜀</small>{% else %}새 일정{% endif %}</td></tr>{% endfor %}</tbody></table></div>
+  {% if token %}<form method="post" class="import-confirm">{% csrf_token %}<input type="hidden" name="action" value="register"><input type="hidden" name="token" value="{{ token }}">{% if duplicate_count %}<label class="inline-check"><input type="checkbox" name="include_duplicates" value="yes"> 중복으로 표시된 일정도 새로 추가</label>{% endif %}<p>내용을 확인한 뒤 등록해 주세요. 미리보기는 30분 동안 유효합니다.</p><div class="form-actions"><button class="button primary" type="submit">일정 등록</button><a class="button quiet" href="{% url 'task_import' %}">취소</a></div></form>{% endif %}
+  </section>{% endif %}
+</section>
+{% endblock %}

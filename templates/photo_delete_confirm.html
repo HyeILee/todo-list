@@ -1,0 +1,17 @@
+{% extends 'base.html' %}
+{% block title %}사진 삭제 확인 · To-do List{% endblock %}
+{% block content %}
+<section class="form-page">
+  <h1>사진을 삭제할까요?</h1>
+  <p>{{ photo.record_date|date:'Y년 n월 j일' }} · {{ photo.original_name }}</p>
+  <p>이날의 사진과 사진첩에서 함께 삭제됩니다. 삭제한 사진은 복구할 수 없습니다.</p>
+  {% if error %}<p class="notice" role="alert">{{ error }}</p>{% endif %}
+  <form method="post" action="{% url 'photo_delete' photo.id %}">
+    {% csrf_token %}<input type="hidden" name="confirm_delete" value="yes">
+    <input type="hidden" name="return_to" value="{{ request.POST.return_to }}">
+    <input type="hidden" name="category" value="{{ request.POST.category }}">
+    <input type="hidden" name="page" value="{{ request.POST.page }}">
+    <div class="form-actions"><a class="button quiet" href="{{ return_url }}">취소</a><button class="button primary" type="submit">사진 삭제</button></div>
+  </form>
+</section>
+{% endblock %}
