@@ -1,0 +1,63 @@
+<div class="day-view" id="day-content">
+  <div class="rollover-notice" data-rollover-date="{% if selected_date == today %}{{ today|date:'Y-m-d' }}{% endif %}" role="status" hidden>날짜가 바뀌었습니다. <a data-day-link href="{% url 'home' %}">오늘로 이동</a></div>
+  <section class="week-section" aria-labelledby="week-heading">
+    <div class="section-top">
+      <div><span class="eyebrow">WEEKLY OVERVIEW</span><h1 id="week-heading">이번 주 <small>{{ week_start|date:'Y.m.d' }} — {{ week_end|date:'Y.m.d' }}</small></h1></div>
+      <div class="week-actions"><a class="icon" aria-label="이전 주" data-day-link href="{% url 'day' previous_week|date:'Y-m-d' %}">←</a><a class="button quiet" data-day-link href="{% url 'day' today|date:'Y-m-d' %}">오늘</a><a class="icon" aria-label="다음 주" data-day-link href="{% url 'day' next_week|date:'Y-m-d' %}">→</a></div>
+    </div>
+    <div class="week-grid">
+      {% for day in week %}<a class="day {{ day.calendar_class }} {% if day.selected %}selected{% endif %}" data-day-link href="{% url 'day' day.date|date:'Y-m-d' %}" {% if day.selected %}aria-current="date"{% endif %} {% if day.holiday_name %}title="{{ day.holiday_name }}"{% endif %}>
+        <span>{{ day.date|date:'D' }}</span><strong>{{ day.date|date:'j' }}</strong>
+        <small class="week-summary"><span>총 {{ day.count }}건</span><span>(완료 {{ day.done_count }}건, 미결 {{ day.pending_count }}건)</span></small>
+        {% if day.important %}<b class="important-star" aria-label="중요 일정 있음"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><polygon points="10,0 12.36,6.91 20,7.64 14.09,12.91 16.18,20 10,15.6 3.82,20 5.91,12.91 0,7.64 7.64,6.91"/></svg></b>{% endif %}
+        {% for task in day.important %}<em>{{ task.title }}</em>{% endfor %}{% if day.important_more %}<em>외 {{ day.important_more }}건</em>{% endif %}
+        {% if day.has_record %}<span class="record-dot" role="img" aria-label="개인 기록 있음"></span>{% endif %}
+      </a>{% endfor %}
+    </div>
+  </section>
+
+  <section class="tasks-section">
+    <div class="section-top"><div><span class="eyebrow">DAILY CHECKLIST</span><h2>{{ selected_date|date:'Y년 n월 j일 l' }}</h2></div><a class="button primary" data-task-dialog href="{% url 'task_create' %}?date={{ selected_date|date:'Y-m-d' }}">＋ 할 일 추가</a></div>
+    {% if grouped_tasks %}
+      <div class="category-grid">
+        {% for category, tasks in grouped_tasks %}
+          <section class="category">
+            <header><i class="swatch {{ category.color_key }}"></i><h3>{{ category.name }}</h3><small>{{ tasks|length }}</small></header>
+            <ul class="task-sort-list" data-task-sort-list data-reorder-url="{% url 'task_reorder' %}" data-task-date="{{ selected_date|date:'Y-m-d' }}" data-category-id="{{ category.id }}">
+              {% for task in tasks %}
+                <li class="task-sort-item" data-task-sort-item data-task-id="{{ task.id }}">
+                  <button class="drag-handle" type="button" draggable="true" data-drag-handle aria-label="{{ task.title }} 같은 상태 안에서 순서 끌기" title="같은 상태의 일정끼리 순서 변경">⋮⋮</button>
+                  <form method="post" action="{% url 'task_status' task.id %}" class="status-form" data-status-form>{% csrf_token %}<input type="hidden" name="expected_updated_at" value="{{ task.updated_at.isoformat }}"><label class="sr-only" for="s{{ task.id }}">{{ task.title }} 상태</label><select id="s{{ task.id }}" name="status" aria-label="{{ task.title }} 상태. 미정은 미처리, O는 완료, X는 하지 못함, 세모는 일부 완료입니다." data-status-select data-saved-value="{{ task.status }}">{% for value,label in task.Status.choices %}<option value="{{ value }}" {% if task.status == value %}selected{% endif %}>{{ label }}</option>{% endfor %}</select><button class="status-submit" type="submit">저장</button><span class="status-feedback" data-status-feedback role="status" aria-live="polite"></span></form>
+                  <div class="task-copy"><strong>{{ task.title }}</strong>{% if task.details %}<small>{{ task.details }}</small>{% endif %}</div>
+                  {% if task.is_important %}<b class="important">중요</b>{% endif %}
+                  <div class="task-row-actions"><a class="row-action" data-task-dialog href="{% url 'task_edit' task.id %}">편집</a>
+                  <form method="post" action="{% url 'task_delete' task.id %}" data-confirm="{{ task.title|escapejs }} 업무를 삭제할까요? 30일 안에는 설정의 휴지통에서 복구할 수 있습니다.">{% csrf_token %}<button class="row-action">삭제</button></form>
+                  <a class="row-action" data-task-dialog data-task-retry href="{% url 'task_retry' task.id %}" aria-label="{{ task.title }} 다른 날짜에 다시 등록" {% if task.status != 'NOT_DONE' and task.status != 'PARTIAL' %}hidden{% endif %}>다시</a></div>
+                  <form method="post" action="{% url 'task_move' task.id %}">{% csrf_token %}<input type="hidden" name="direction" value="up"><button class="row-action" aria-label="{{ task.title }} 같은 상태 안에서 위로 이동">↑</button></form>
+                  <form method="post" action="{% url 'task_move' task.id %}">{% csrf_token %}<input type="hidden" name="direction" value="down"><button class="row-action" aria-label="{{ task.title }} 같은 상태 안에서 아래로 이동">↓</button></form>
+                </li>
+              {% endfor %}
+            </ul>
+          </section>
+        {% endfor %}
+      </div>
+    {% else %}<div class="empty"><p>이 날짜에 등록된 할 일이 없습니다.</p><a data-task-dialog href="{% url 'task_create' %}?date={{ selected_date|date:'Y-m-d' }}">할 일 추가</a></div>{% endif %}
+  </section>
+
+  <section class="record-editor" aria-labelledby="record-heading">
+    <div class="section-top"><div><span class="eyebrow">DAILY NOTES</span><h2 id="record-heading">이날의 기록</h2></div><nav class="record-library-links" aria-label="모아 둔 기록"><a href="{% url 'record_list' %}">일기장 →</a><a href="{% url 'photo_album' %}">사진첩 →</a></nav></div>
+    <form method="post" action="{% url 'record_save' selected_date %}" class="record-form" data-record-draft data-record-date="{{ selected_date|date:'Y-m-d' }}" data-has-server-record="{% if record %}true{% else %}false{% endif %}">{% csrf_token %}<input type="hidden" name="expected_updated_at" value="{{ record_version }}">
+      {% for field in record_form %}
+        {% include "note_field.html" %}
+      {% endfor %}
+      <div class="record-actions"><div class="inline-help"><button class="help-toggle" type="button" data-help-toggle aria-label="기록 저장 안내" aria-expanded="false" aria-controls="record-save-help">ⓘ</button><span class="help-popover" id="record-save-help" role="note">할 일과 별도로 저장됩니다. 임시 초안은 현재 탭에만 보관되며 탭을 닫거나 로그아웃하면 삭제됩니다.</span></div><button class="button primary" type="submit">기록 저장</button></div>
+    </form>
+  </section>
+
+  <section class="daily-photos" aria-labelledby="daily-photos-heading" data-photo-section data-upload-url="{% url 'photo_upload' selected_date %}" data-photo-limit="10">
+      <div class="photo-section-heading"><h2 id="daily-photos-heading">이날의 사진</h2><div class="inline-help"><button class="help-toggle" type="button" data-help-toggle aria-label="사진 업로드 안내" aria-expanded="false" aria-controls="photo-upload-help">ⓘ</button><span class="help-popover" id="photo-upload-help" role="note">하루 최대 10장 · JPEG, PNG, WebP<br>큰 사진은 자동으로 줄여 저장합니다. 저장 파일은 2.5MB 이하입니다.<br>현재 <span data-photo-count>{{ daily_photos|length }} / 10</span></span></div></div>
+      <div class="daily-photo-grid" data-photo-grid>{% for photo in daily_photos %}<figure><img src="{% url 'photo_content' photo.id %}" alt="{{ photo.original_name }}" loading="lazy"><figcaption><span class="photo-category photo-category-{{ photo.category|lower }}">{{ photo.get_category_display }}</span><span class="photo-name">{{ photo.original_name }}</span></figcaption><form class="photo-card-actions" method="post" action="{% url 'photo_delete' photo.id %}" data-photo-delete-form data-photo-name="{{ photo.original_name }}">{% csrf_token %}<button class="photo-delete-button" type="submit" aria-label="{{ photo.original_name }} 사진 삭제">삭제</button></form></figure>{% endfor %}</div>
+      <p class="hint photo-delete-status" data-photo-delete-status role="status" aria-live="polite"></p>
+      {% if photo_storage_ready %}<form class="photo-upload-form" method="post" enctype="multipart/form-data" action="{% url 'photo_upload' selected_date %}" data-photo-upload-form>{% csrf_token %}<label for="daily-photo-category">사진 분류</label><select id="daily-photo-category" name="category" data-photo-category required><option value="LIFE">Life</option><option value="WORK">Work</option><option value="ETC">Etc</option></select><label class="button quiet" for="daily-photo-input">사진 선택</label><input id="daily-photo-input" name="photo" data-photo-input type="file" accept="image/jpeg,image/png,image/webp" multiple {% if photo_slots_remaining == 0 %}disabled{% endif %}><button class="button primary" type="submit" {% if photo_slots_remaining == 0 %}disabled{% endif %}>업로드</button><span class="hint" data-photo-status role="status" aria-live="polite">{% if photo_slots_remaining == 0 %}오늘의 사진을 모두 올렸습니다. 사진을 삭제하거나 다른 날짜를 선택해 주세요.{% endif %}</span></form>{% else %}<p class="photo-unavailable">사진 저장소를 준비하는 중입니다. 기록과 할 일은 계속 사용할 수 있습니다.</p>{% endif %}
+  </section>
+</div>
