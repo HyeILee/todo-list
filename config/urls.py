@@ -1,0 +1,7 @@
+from django.contrib.auth import views as auth_views
+from django.urls import include, path, reverse_lazy
+from .forms import OwnerAuthenticationForm
+from . import passkeys
+from tasks.views import session_activity
+
+urlpatterns = [path("accounts/activity/", session_activity, name="session_activity"), path("accounts/login/", passkeys.ConditionalLoginView.as_view(), name="login"), path("accounts/logout/", auth_views.LogoutView.as_view(), name="logout"), path("accounts/password_change/", auth_views.PasswordChangeView.as_view(template_name="password_change.html", success_url=reverse_lazy("password_change_done")), name="password_change"), path("accounts/password_change/done/", auth_views.PasswordChangeDoneView.as_view(template_name="password_change_done.html"), name="password_change_done"), path("accounts/security/", passkeys.security_page, name="login_security"), path("accounts/verify/", passkeys.challenge_page, name="passkey_challenge"), path("accounts/passkey/register/options/", passkeys.registration_options, name="passkey_register_options"), path("accounts/passkey/register/verify/", passkeys.registration_verify, name="passkey_register_verify"), path("accounts/passkey/auth/options/", passkeys.authentication_options, name="passkey_auth_options"), path("accounts/passkey/auth/verify/", passkeys.authentication_verify, name="passkey_auth_verify"), path("accounts/passkey/recovery/", passkeys.recovery_verify, name="passkey_recovery"), path("accounts/security/action/", passkeys.security_action, name="login_security_action"), path("", include("tasks.urls"))]
