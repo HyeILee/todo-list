@@ -1,0 +1,34 @@
+@media (max-width: 760px) {
+  body { min-width: 360px; font-size: 16px; }
+  .page-shell { padding-right: 12px; padding-left: 12px; }
+  .field input:not([type="checkbox"]),
+  .field select,
+  .field textarea,
+  .login-form input,
+  .filter-grid .field input,
+  .filter-grid .field select { min-height: 44px; font-size: 16px; }
+  .field textarea { min-height: 88px; }
+  .button,
+  .icon,
+  .status-form select,
+  .status-submit,
+  .drag-handle,
+  .mobile-nav a { min-height: 44px; }
+  .row-action { min-width: 44px; min-height: 44px; display: inline-flex; align-items: center; justify-content: center; }
+  .drag-handle { width: 44px; height: 44px; touch-action: none; }
+}
+
+.form-errors:empty { display: none; }
+
+@media (max-width: 390px) {
+  .page-shell { padding-right: 10px; padding-left: 10px; }
+  .week-grid { gap: 3px; }
+  .day { min-width: 0; padding-right: 4px; padding-left: 4px; }
+  .day strong { font-size: 18px; }
+  .week-actions { gap: 4px; }
+  .week-actions .icon { width: 44px; min-height: 44px; }
+}
+
+@media (max-width: 760px) {
+  .status-toast { bottom: calc(76px + env(safe-area-inset-bottom)); }
+}
