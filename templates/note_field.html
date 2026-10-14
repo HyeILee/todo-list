@@ -1,0 +1,5 @@
+<div class="field note-field">
+  <div class="field-heading"><label for="{{ field.id_for_label }}">{{ field.label }}</label><div class="inline-help"><button class="help-toggle" type="button" data-help-toggle aria-label="{{ field.label }} 입력 안내" aria-expanded="false" aria-controls="{{ field.id_for_label }}_help">ⓘ</button><span class="help-popover" id="{{ field.id_for_label }}_help" role="note">서식 표시를 포함해 최대 {{ field.field.max_length }}자까지 입력할 수 있습니다.<br>기본은 검은색 일반 글씨입니다. 선택한 문장에만 꾸밈을 적용할 수 있습니다.<br>입력칸에는 서식 기호가 보이며, 저장 후 일기장에서 꾸밈이 표시됩니다.<br>현재 <span data-character-count data-target="{{ field.id_for_label }}" data-max="{{ field.field.max_length }}">{{ field.value|length }} / {{ field.field.max_length }}</span></span></div></div>
+  {{ field }}
+  <small class="form-errors" id="{{ field.id_for_label }}_errors" aria-live="polite">{% for error in field.errors %}<span class="form-error">{{ error }}</span>{% endfor %}</small>
+</div>
