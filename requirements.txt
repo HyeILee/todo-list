@@ -1,0 +1,26 @@
+# Runtime dependencies, including pinned transitive dependencies.
+Django==5.2.17
+openpyxl==3.1.5
+asgiref==3.9.1
+sqlparse==0.6.0
+et-xmlfile==2.0.0
+tzdata==2025.2
+django-axes==8.0.0
+django-ipware==7.0.1
+python-ipware==4.1.0
+python-dotenv==1.2.2
+psycopg[binary]==3.3.6
+typing-extensions==4.16.0
+vercel==0.11.4
+Pillow==12.3.0
+defusedxml==0.7.1
+
+# WebAuthn and its pinned verification dependencies.
+webauthn==3.0.1
+cbor2==6.1.5
+cryptography==50.0.2
+cffi==2.1.1
+pyOpenSSL==26.4.0
+pyasn1==0.6.4
+pyasn1-modules==0.4.2
+pycparser==3.0
