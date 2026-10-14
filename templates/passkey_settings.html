@@ -1,0 +1,22 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}로그인 추가 인증 · To-do List{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'passkeys.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="simple passkey-page" data-passkey-page="settings" data-register-options="{% url 'passkey_register_options' %}" data-register-verify="{% url 'passkey_register_verify' %}" data-auth-options="{% url 'passkey_auth_options' %}" data-auth-verify="{% url 'passkey_auth_verify' %}" data-action="{% url 'login_security_action' %}">
+<a class="back-link" href="{% url 'settings_home' %}">← 설정</a><span class="eyebrow">LOGIN SECURITY</span><h1>로그인 추가 인증</h1>
+<p>비밀번호 다음에 지문·얼굴 인식·기기 PIN으로 본인을 확인합니다. 본인 브라우저를 기억하면 같은 IP에서 30일 동안 추가 인증을 생략합니다. IP가 바뀌거나 처음 쓰는 브라우저에서는 다시 확인합니다.</p>
+<p><strong>현재 상태: {% if security.enabled %}켜짐{% else %}꺼짐{% endif %}</strong>{% if not security.enabled %} · 등록과 복구 코드 보관을 마칠 때까지 기존 로그인으로 접속할 수 있습니다.{% endif %}</p>
+{% csrf_token %}<p class="form-error" role="alert" data-passkey-error hidden></p><p class="hint" role="status" aria-live="polite" data-passkey-status></p>
+{% if not passkey_rp_ok %}<p class="notice">패스키 등록과 확인은 <a href="{{ passkey_origin }}/accounts/security/">운영 주소</a>에서 진행해 주세요.</p>{% else %}
+<p class="notice" data-passkey-unsupported hidden>이 브라우저에서는 패스키를 사용할 수 없습니다. 최신 브라우저로 운영 사이트를 열어 주세요.</p>
+{% if security.enabled or passkeys %}<div class="passkey-card"><h2>{% if security.enabled %}먼저 본인 확인{% else %}등록을 이어서 완료하기{% endif %}</h2><p>{% if security.enabled %}패스키 추가나 보안 설정 변경 전에 등록한 패스키로 확인해 주세요.{% else %}아래에 현재 비밀번호를 입력한 뒤 등록한 패스키로 확인하면, 새 복구 코드를 보관하고 추가 인증을 켤 수 있습니다.{% endif %}</p><button type="button" class="button primary" data-passkey-auth>패스키로 본인 확인</button></div>{% endif %}
+<form class="passkey-card" data-passkey-register><h2>{% if security.enabled %}패스키 추가{% else %}패스키 등록{% endif %}</h2>
+<label for="security-password">현재 비밀번호</label><input type="password" id="security-password" autocomplete="current-password" required>
+<label for="passkey-label">기기 이름</label><input type="text" id="passkey-label" maxlength="60" value="내 패스키" autocomplete="off">
+<p class="hint">브라우저가 여는 창에서 본인 기기의 지문·얼굴 인식·PIN을 사용해 주세요. 공용 기기에는 등록하지 마세요.</p><button class="button primary" type="submit" data-needs-passkey>패스키 등록하기</button></form>
+<section class="passkey-card" data-recovery-codes hidden><h2>복구 코드 보관</h2><p>기기를 잃었을 때 비밀번호와 함께 사용할 수 있는 코드입니다. 각 코드는 한 번만 사용할 수 있으며 이 화면에서만 표시됩니다. 별도로 안전하게 보관해 주세요.</p><pre data-recovery-code-text></pre>
+{% if not security.enabled %}<label class="passkey-check"><input type="checkbox" data-codes-saved> 복구 코드를 따로 보관했습니다.</label><label class="passkey-check"><input type="checkbox" data-remember> 이 브라우저를 30일 기억하기</label><p class="hint">공용 기기에서는 기억하지 마세요.</p><button class="button primary" type="button" data-passkey-enable disabled>추가 인증 켜기</button>{% endif %}</section>
+{% if security.enabled %}<section class="passkey-card"><h2>등록과 복구 관리</h2><ul>{% for key in passkeys %}<li>{{ key.label }} · {{ key.created_at|date:'Y.m.d' }}</li>{% empty %}<li>등록한 패스키가 없습니다.</li>{% endfor %}</ul><p>남은 복구 코드: {{ recovery_remaining }}개</p><p class="hint">위에서 본인 확인을 하고 현재 비밀번호를 입력한 뒤 진행해 주세요. 복구 코드로 로그인한 경우에도 새 패스키를 등록할 수 있습니다.</p><div class="form-actions"><button class="button quiet" type="button" data-security-action="codes">복구 코드 다시 만들기</button><button class="button quiet" type="button" data-security-action="forget">기억한 브라우저 모두 해제</button><button class="button quiet" type="button" data-security-action="disable">추가 인증 끄기</button></div></section>{% endif %}
+{% endif %}
+</section>{% endblock %}
+{% block extra_scripts %}<script src="{% static 'passkeys.js' %}?v=1" defer></script>{% endblock %}
