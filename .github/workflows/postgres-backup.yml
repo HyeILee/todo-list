@@ -1,0 +1,80 @@
+name: PostgreSQL schedule verification
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [codex/postgres-backup-verification, codex/excel-task-import]
+  pull_request:
+    paths:
+      - config/**
+      - tasks/**
+      - templates/**
+      - static/**
+      - requirements.txt
+      - .github/workflows/postgres-backup.yml
+
+permissions:
+  contents: read
+
+jobs:
+  postgres-backups:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_DB: dugyeon_fixture
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: disposable-ci-fixture
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+    env:
+      PYTHON_DOTENV_DISABLED: '1'
+      DJANGO_DEBUG: 'true'
+      DJANGO_SECRET_KEY: isolated-ci-fixture-secret-without-production-access
+      REMOTE_OPERATION_APPROVED: 'false'
+      DJANGO_ALLOWED_HOSTS: 127.0.0.1,localhost
+      DATABASE_URL: postgresql://postgres:disposable-ci-fixture@127.0.0.1:5432/dugyeon_fixture?sslmode=disable
+      BACKUP_DIR: /tmp/dugyeon-fixture-backups
+      VERCEL: '0'
+      APP_SINGLE_USER: 'true'
+      APP_OWNER_USERNAME: ''
+      AUTOMATIC_DATABASE_BACKUPS: 'false'
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          persist-credentials: false
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+      - name: Install pinned application dependencies
+        run: python -m pip install -r requirements.txt
+      - name: Verify genuine PostgreSQL connection
+        run: |
+          python - <<'PY'
+          import os
+          import psycopg
+          with psycopg.connect(os.environ['DATABASE_URL']) as connection:
+              print('PostgreSQL version:', connection.execute('SHOW server_version').fetchone()[0])
+          PY
+      - name: Check migrations
+        run: python manage.py makemigrations --check --dry-run
+      - name: Execute PostgreSQL Excel import, backup and reminder tests
+        run: >-
+          python manage.py test
+          tasks.test_passkeys
+          tasks.test_postgres
+          tasks.test_task_import
+          tasks.test_backup_cycles
+          tasks.test_security_reminders
+          tasks.test_photo_privacy
+          tasks.test_daylog_features
+          --verbosity 2
+      - name: Verify browser backup scripts
+        run: node --test tests/*.test.js
