@@ -78,7 +78,13 @@ function setup() {
     setResponse(value) {response = value;},
     save(id, status) {rows[id].select.value = status; return events.submit({target: rows[id].form, preventDefault() {}});},
     startDrag(id) {events.dragstart({target: rows[id].handle, dataTransfer});},
-    dragOver(id) {events.dragover({target: rows[id], clientY: 19, preventDefault() {}});},
+    dragOver(id) {
+      let accepted = false;
+      events.dragover({target: id ? rows[id] : {closest: selector => selector === '[data-task-sort-list]' ? list : null},
+        clientY: 19, preventDefault() {accepted = true;}});
+      return accepted;
+    },
+    endDrag() {events.dragend();},
     drop() {return events.drop({target: {closest: () => list}, preventDefault() {}});},
   };
 }
@@ -135,6 +141,30 @@ test('dragging cannot move a task into a different saved status group', () => {
   const state = setup(), before = state.ids();
   state.startDrag('p1'); state.dragOver('d');
   assert.deepEqual(state.ids(), before);
+});
+
+for (const target of ['p1', null]) {
+  test(`a browser can drop over ${target ? 'the moved row under its pointer' : 'a gap in its original list'}`, async () => {
+    const state = setup();
+    const expected = ['p2', 'p1', 'x', 't', 'd'];
+    state.startDrag('p1');
+    state.dragOver('p2');
+    assert.deepEqual(state.ids(), expected);
+    state.setResponse({body: {ok: true, task_ids: expected}});
+    // Browsers dispatch drop only when the latest dragover was cancelled.
+    if (state.dragOver(target)) await state.drop();
+    state.endDrag();
+    assert.deepEqual(state.ids(), expected);
+    assert.equal(state.requests.length, 1);
+    assert.deepEqual(state.requests[0].options.body.values.task_ids, expected);
+  });
+}
+
+test('ending a drag outside its list restores the order without a save', () => {
+  const state = setup(), before = state.ids();
+  state.startDrag('p1'); state.dragOver('p2'); state.endDrag();
+  assert.deepEqual(state.ids(), before);
+  assert.equal(state.requests.length, 0);
 });
 
 for (const response of [{ok: false}, {redirected: true}, {body: {ok: false}}]) {

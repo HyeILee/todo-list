@@ -414,7 +414,13 @@
     if (!draggedItem || !draggedList) return;
     const list = event.target.closest("[data-task-sort-list]");
     const target = event.target.closest("[data-task-sort-item]");
-    if (list !== draggedList || !target || target === draggedItem) return;
+    if (list !== draggedList) return;
+    // Reordering can move the dragged row underneath the pointer. Browsers
+    // still need dragover cancelled there (and in list gaps) to allow drop.
+    if (!target || target === draggedItem) {
+      event.preventDefault();
+      return;
+    }
     const draggedStatus = draggedItem.querySelector("[data-status-select]");
     const targetStatus = target.querySelector("[data-status-select]");
     if ((draggedStatus.dataset.savedValue || draggedStatus.value) !==
