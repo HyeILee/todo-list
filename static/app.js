@@ -195,6 +195,7 @@
     current.replaceWith(replacement);
     if (addHistory) window.history.pushState({}, "", url.toString());
     replacement.querySelector(".day.selected")?.focus();
+    revealSelectedWeek();
     replacement.querySelectorAll("[data-status-select]").forEach((select) => {
       select.dataset.savedValue = select.value;
     });
@@ -205,6 +206,25 @@
     window.initializeNoteEditors?.(replacement);
     updateDateRollover();
     return true;
+  };
+
+  const revealSelectedWeek = () => {
+    const grid = document.querySelector("[data-week-overview] .week-grid");
+    const selected = grid?.querySelector(".selected");
+    if (selected && grid.scrollWidth > grid.clientWidth) {
+      grid.scrollLeft = selected.offsetLeft - grid.offsetLeft - (grid.clientWidth - selected.clientWidth) / 2;
+    }
+  };
+
+  const refreshWeek = (result) => {
+    const current = document.querySelector("[data-week-overview]");
+    // A response from the previous day must not replace the week after navigation.
+    if (!current || result.week_date !== current.dataset.selectedDate || typeof result.week_html !== "string") return;
+    const replacement = new DOMParser().parseFromString(result.week_html, "text/html").querySelector("[data-week-overview]");
+    if (!replacement) return;
+    const scrollLeft = current.querySelector(".week-grid")?.scrollLeft || 0;
+    current.replaceWith(replacement);
+    replacement.querySelector(".week-grid").scrollLeft = scrollLeft;
   };
 
   const updateDay = async (url, addHistory = true) => {
@@ -255,6 +275,7 @@
       if (retryLink) retryLink.hidden = !["NOT_DONE", "PARTIAL"].includes(result.status);
       const list = form.closest("[data-task-sort-list]");
       if (list && Array.isArray(result.task_ids)) restoreTaskOrder(list, result.task_ids);
+      refreshWeek(result);
       if (feedback) feedback.textContent = "저장됨";
       announceStatus("상태를 저장했습니다.");
     } catch {
@@ -294,6 +315,7 @@
       const result = await response.json();
       if (!result.ok || !Array.isArray(result.task_ids)) throw new Error("task-reorder-invalid");
       restoreTaskOrder(list, result.task_ids);
+      refreshWeek(result);
       announceStatus("업무 순서를 저장했습니다.");
     } catch {
       restoreTaskOrder(list, oldOrder);
@@ -462,4 +484,5 @@
     requestDialogClose();
   });
   dialog.addEventListener("close", () => opener?.focus());
+  revealSelectedWeek();
 })();

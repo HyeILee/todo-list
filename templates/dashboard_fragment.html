@@ -1,20 +1,6 @@
 <div class="day-view" id="day-content">
   <div class="rollover-notice" data-rollover-date="{% if selected_date == today %}{{ today|date:'Y-m-d' }}{% endif %}" role="status" hidden>날짜가 바뀌었습니다. <a data-day-link href="{% url 'home' %}">오늘로 이동</a></div>
-  <section class="week-section" aria-labelledby="week-heading">
-    <div class="section-top">
-      <div><span class="eyebrow">WEEKLY OVERVIEW</span><h1 id="week-heading">이번 주 <small>{{ week_start|date:'Y.m.d' }} — {{ week_end|date:'Y.m.d' }}</small></h1></div>
-      <div class="week-actions"><a class="icon" aria-label="이전 주" data-day-link href="{% url 'day' previous_week|date:'Y-m-d' %}">←</a><a class="button quiet" data-day-link href="{% url 'day' today|date:'Y-m-d' %}">오늘</a><a class="icon" aria-label="다음 주" data-day-link href="{% url 'day' next_week|date:'Y-m-d' %}">→</a></div>
-    </div>
-    <div class="week-grid">
-      {% for day in week %}<a class="day {{ day.calendar_class }} {% if day.selected %}selected{% endif %}" data-day-link href="{% url 'day' day.date|date:'Y-m-d' %}" {% if day.selected %}aria-current="date"{% endif %} {% if day.holiday_name %}title="{{ day.holiday_name }}"{% endif %}>
-        <span>{{ day.date|date:'D' }}</span><strong>{{ day.date|date:'j' }}</strong>
-        <small class="week-summary"><span>총 {{ day.count }}건</span><span>(완료 {{ day.done_count }}건, 미결 {{ day.pending_count }}건)</span></small>
-        {% if day.important %}<b class="important-star" aria-label="중요 일정 있음"><svg viewBox="0 0 20 20" aria-hidden="true" focusable="false"><polygon points="10,0 12.36,6.91 20,7.64 14.09,12.91 16.18,20 10,15.6 3.82,20 5.91,12.91 0,7.64 7.64,6.91"/></svg></b>{% endif %}
-        {% for task in day.important %}<em>{{ task.title }}</em>{% endfor %}{% if day.important_more %}<em>외 {{ day.important_more }}건</em>{% endif %}
-        {% if day.has_record %}<span class="record-dot" role="img" aria-label="개인 기록 있음"></span>{% endif %}
-      </a>{% endfor %}
-    </div>
-  </section>
+  {% include "weekly_overview.html" %}
 
   <section class="tasks-section">
     <div class="section-top"><div><span class="eyebrow">DAILY CHECKLIST</span><h2>{{ selected_date|date:'Y년 n월 j일 l' }}</h2></div><a class="button primary" data-task-dialog href="{% url 'task_create' %}?date={{ selected_date|date:'Y-m-d' }}">＋ 할 일 추가</a></div>

@@ -1,0 +1,20 @@
+<section class="week-section" aria-labelledby="week-heading" data-week-overview data-selected-date="{{ selected_date|date:'Y-m-d' }}">
+  <div class="section-top">
+    <div><span class="eyebrow">WEEKLY OVERVIEW</span><h1 id="week-heading">한 주의 할 일 <small>{{ week_start|date:'Y.m.d' }} — {{ week_end|date:'Y.m.d' }}</small></h1></div>
+    <div class="week-actions"><a class="icon" aria-label="이전 주" data-day-link href="{% url 'day' previous_week|date:'Y-m-d' %}">←</a><a class="button quiet" data-day-link href="{% url 'day' today|date:'Y-m-d' %}">오늘</a><a class="icon" aria-label="다음 주" data-day-link href="{% url 'day' next_week|date:'Y-m-d' %}">→</a></div>
+  </div>
+  <div class="week-focus"><p>미정 <strong>{{ week_pending_count }}</strong>개{% if week_past_pending_count %}<span class="week-past-summary">이 주의 지난 날짜에 {{ week_past_pending_count }}개 남아 있어요</span>{% endif %}</p><span class="week-guide">미정인 할 일만 모아 봐요 · 날짜를 누르면 하루 전체 보기</span></div>
+  <p class="week-scroll-hint">좌우로 밀어 다른 날짜도 확인하세요</p>
+  <div class="week-grid" aria-label="날짜별 미정 할 일">
+    {% for day in week %}
+    <a class="day week-day {{ day.calendar_class }}{% if day.selected %} selected{% endif %}{% if day.is_today %} is-today{% endif %}{% if day.is_past and day.pending_count %} has-past-pending{% endif %}" data-day-link href="{% url 'day' day.date|date:'Y-m-d' %}" {% if day.selected %}aria-current="date"{% endif %} aria-label="{{ day.date|date:'n월 j일 l' }}{% if day.is_today %}, 오늘{% endif %}{% if day.holiday_name %}, {{ day.holiday_name }}{% endif %}, 미정 {{ day.pending_count }}개, 하루 전체 보기" aria-describedby="week-tasks-{{ day.date|date:'Y-m-d' }}">
+      <div class="week-day-heading"><span class="week-weekday">{{ day.date|date:'D' }}</span>{% if day.is_today %}<span class="week-today-label">오늘</span>{% endif %}<strong class="week-date">{{ day.date|date:'j' }}</strong>{% if day.has_record %}<span class="week-record-dot" role="img" aria-label="개인 기록 있음"></span>{% endif %}</div>
+      <span class="week-pending-count{% if not day.pending_count %} is-empty{% endif %}">미정 {{ day.pending_count }}{% if day.is_past and day.pending_count %}<span class="week-past-label">남음</span>{% endif %}</span>
+      <ul class="week-task-list" id="week-tasks-{{ day.date|date:'Y-m-d' }}">
+        {% for task in day.pending_tasks %}<li class="week-task {{ task.category.color_key }}" title="{{ task.category.name }} · {{ task.title }}"><span class="sr-only">{{ task.category.name }} · </span>{% if task.is_important %}<span class="week-task-star" aria-label="중요">★</span>{% endif %}<span class="week-task-title">{{ task.title }}</span></li>{% empty %}<li class="week-empty">미정인<br>할 일이 없어요</li>{% endfor %}
+      </ul>
+      {% if day.pending_more %}<span class="week-more">＋ {{ day.pending_more }}개 더 보기</span>{% endif %}
+    </a>
+    {% endfor %}
+  </div>
+</section>

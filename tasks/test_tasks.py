@@ -226,13 +226,16 @@ class ChecklistTests(IsolatedWriteTests):
         task = Task.objects.create(task_date=date(2026, 9, 30), category=self.category, title='상태 조각')
         response = self.client.post(reverse('task_status', args=[task.pk]), {'status': Task.Status.PARTIAL}, HTTP_HX_REQUEST='true')
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'status': Task.Status.PARTIAL, 'label': '△', 'task_ids': [str(task.pk)]})
+        self.assertEqual(response.json()['status'], Task.Status.PARTIAL)
+        self.assertEqual(response.json()['label'], '△')
+        self.assertEqual(response.json()['task_ids'], [str(task.pk)])
+        self.assertEqual(response.json()['week_date'], '2026-09-30')
 
     def test_inbox_is_excluded_from_week(self):
         self.client.force_login(self.user)
         Task.objects.create(task_date=None, category=self.category, title='날짜 미정')
         response = self.client.get(reverse('day', args=['2026-09-30']))
-        self.assertContains(response, '0건')
+        self.assertEqual(response.context['week_pending_count'], 0)
 
     def test_soft_deleted_task_is_hidden(self):
         self.client.force_login(self.user)
@@ -269,7 +272,9 @@ class ChecklistTests(IsolatedWriteTests):
         first.refresh_from_db()
         second.refresh_from_db()
         self.assertEqual(response.status_code, 200)
-        self.assertEqual(response.json(), {'ok': True, 'task_ids': [str(second.pk), str(first.pk)]})
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(response.json()['task_ids'], [str(second.pk), str(first.pk)])
+        self.assertIn('week_html', response.json())
         self.assertEqual((second.sort_order, first.sort_order), (0, 1))
 
     def test_drag_reorder_rejects_ids_from_another_date(self):

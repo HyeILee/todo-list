@@ -37,7 +37,7 @@ class DayLogFeatureTests(TestCase):
         self.assertContains(self.client.get(reverse("task_list")), "<h1>전체 퀘스트</h1>", html=True)
         self.assertContains(self.client.get(reverse("record_list")), "<h1>일기장</h1>", html=True)
 
-    def test_week_summary_counts_every_non_done_task_as_pending(self):
+    def test_week_summary_counts_only_undecided_tasks_as_pending(self):
         category = Category.objects.create(name="개인")
         statuses = [Task.Status.DONE, Task.Status.PENDING, Task.Status.NOT_DONE, Task.Status.PARTIAL]
         for index, status in enumerate(statuses):
@@ -45,11 +45,9 @@ class DayLogFeatureTests(TestCase):
         self.client.force_login(self.user)
         response = self.client.get(reverse("day", args=["2026-10-02"]))
         summary = next(item for item in response.context["week"] if item["date"] == date(2026, 10, 2))
-        self.assertEqual(summary["count"], 4)
-        self.assertEqual(summary["done_count"], 1)
-        self.assertEqual(summary["pending_count"], 3)
-        self.assertContains(response, "총 4건")
-        self.assertContains(response, "(완료 1건, 미결 3건)")
+        self.assertEqual(summary["pending_count"], 1)
+        self.assertEqual([task.status for task in summary["pending_tasks"]], [Task.Status.PENDING])
+        self.assertNotContains(response, "(완료 1건, 미결 3건)")
 
     def test_task_dialog_omits_save_and_add_button(self):
         self.client.force_login(self.user)
@@ -551,7 +549,8 @@ class TaskStatusOrderTests(TestCase):
             'category_id': self.category.pk, 'task_date': self.day.isoformat(),
             'task_ids': self.ids(submitted),
         }, HTTP_HX_REQUEST='true')
-        self.assertEqual(response.json(), {'ok': True, 'task_ids': self.ids(expected)})
+        self.assertTrue(response.json()['ok'])
+        self.assertEqual(response.json()['task_ids'], self.ids(expected))
         self.assertEqual(self.ids(self.displayed()), self.ids(expected))
         unrelated.refresh_from_db()
         self.assertEqual(unrelated.sort_order, 99)
@@ -685,3 +684,117 @@ class PhotoDeletionTests(TestCase):
             delete.side_effect = RuntimeError("service failure")
             with self.assertRaises(PhotoStorageError):
                 delete_private_photo(self.photo.blob_url)
+
+
+class WeeklyOverviewTests(TestCase):
+    def setUp(self):
+        self.enterContext(mock.patch('tasks.backups.ensure_daily_backup_before_change', return_value=True))
+        self.enterContext(mock.patch('tasks.views.timezone.localdate', return_value=date(2026, 10, 21)))
+        self.client.force_login(get_user_model().objects.create_user(username='weekly-owner'))
+        self.category = Category.objects.create(name='업무', color_key='coral')
+        self.day = date(2026, 10, 21)
+
+    def task(self, title, **changes):
+        values = dict(title=title, category=self.category, task_date=self.day)
+        values.update(changes)
+        return Task.objects.create(**values)
+
+    def overview(self):
+        from django.template.loader import render_to_string
+        from .views import weekly_context
+        context = weekly_context(self.day)
+        return context, render_to_string('weekly_overview.html', context)
+
+    def test_only_pending_in_this_week_with_cap_and_exact_remainder(self):
+        from django.utils import timezone
+        pending = [self.task(f'남은 일 {i}', sort_order=i) for i in range(9)]
+        for status in (Task.Status.DONE, Task.Status.NOT_DONE, Task.Status.PARTIAL):
+            self.task(f'제외 상태 {status}', status=status, is_important=True)
+        self.task('삭제한 일', deleted_at=timezone.now())
+        self.task('날짜 미정인 일', task_date=None)
+        self.task('지난주 일', task_date=date(2026, 10, 18))
+        self.task('다음주 일', task_date=date(2026, 10, 26))
+        context, html = self.overview()
+        day = context['week'][2]
+        self.assertEqual(context['week_pending_count'], 9)
+        self.assertEqual(day['pending_tasks'], pending[:6])
+        self.assertEqual((day['pending_count'], day['pending_more']), (9, 3))
+        self.assertIn('＋ 3개 더 보기', html)
+        for task in pending[:6]:
+            self.assertIn(task.title, html)
+        for title in ('남은 일 6', '남은 일 7', '남은 일 8', '제외 상태', '삭제한 일', '날짜 미정인 일', '지난주 일', '다음주 일'):
+            self.assertNotIn(title, html)
+        response = self.client.get(reverse('day', args=[self.day]))
+        self.assertTemplateUsed(response, 'weekly_overview.html')
+        self.assertEqual(response.context['week'], context['week'])
+
+    def test_past_counts_are_scoped_to_shown_week_and_today_is_not_past(self):
+        self.task('지나간 월요일', task_date=date(2026, 10, 19))
+        self.task('오늘 할 일')
+        self.task('미래 할 일', task_date=date(2026, 10, 25))
+        self.task('지난 주', task_date=date(2026, 10, 18))
+        context, html = self.overview()
+        self.assertEqual((context['week_pending_count'], context['week_past_pending_count']), (3, 1))
+        self.assertTrue(context['week'][0]['is_past'])
+        self.assertTrue(context['week'][2]['is_today'])
+        self.assertFalse(context['week'][2]['is_past'])
+        self.assertIn('이 주의 지난 날짜에 1개 남아 있어요', html)
+        self.assertIn('has-past-pending', html)
+        self.assertIn('오늘', html)
+
+    def test_category_order_manual_order_importance_and_escaped_titles(self):
+        later = Category.objects.create(name='개인', sort_order=1, color_key='leaf')
+        last = self.task('뒤의 카테고리', category=later)
+        second = self.task('둘째', sort_order=5)
+        first = self.task('<img src=x onerror=alert(1)>', sort_order=1, is_important=True)
+        context, html = self.overview()
+        self.assertEqual(context['week'][2]['pending_tasks'], [first, second, last])
+        self.assertIn('week-task coral', html)
+        self.assertIn('aria-label="중요"', html)
+        self.assertIn('&lt;img src=x onerror=alert(1)&gt;', html)
+        self.assertNotIn('<img src=x', html)
+        self.assertIn(reverse('day', args=[self.day]), html)
+
+    def test_empty_week_and_year_boundary_keep_seven_dates_and_record_markers(self):
+        from .views import weekly_context
+        DailyRecord.objects.create(record_date=date(2026, 12, 31), today_story='남겨 둔 기록')
+        context = weekly_context(date(2027, 1, 1))
+        self.assertEqual([item['date'] for item in context['week']], [date(2026, 12, 28), date(2026, 12, 29), date(2026, 12, 30), date(2026, 12, 31), date(2027, 1, 1), date(2027, 1, 2), date(2027, 1, 3)])
+        self.assertEqual(context['week_pending_count'], 0)
+        self.assertTrue(context['week'][3]['has_record'])
+        self.assertEqual(self.overview()[1].count('미정인<br>할 일이 없어요'), 7)
+
+    def test_week_queries_do_not_grow_per_task_or_category(self):
+        from .views import weekly_context
+        for index in range(12):
+            self.task(f'할 일 {index}', category=Category.objects.create(name=f'카테고리 {index}'))
+        with self.assertNumQueries(4):
+            context = weekly_context(self.day)
+            self.assertEqual(len(context['week'][2]['pending_tasks']), 6)
+            for task in context['week'][2]['pending_tasks']:
+                self.assertTrue(task.category.name)
+
+    def test_status_updates_remove_refill_and_restore_pending_preview(self):
+        pending = [self.task(f'할 일 {i}', sort_order=i) for i in range(7)]
+        url = reverse('task_status', args=[pending[0].pk])
+        for status in (Task.Status.DONE, Task.Status.NOT_DONE, Task.Status.PARTIAL):
+            response = self.client.post(url, {'status': status}, HTTP_HX_REQUEST='true').json()
+            self.assertEqual(response['week_date'], self.day.isoformat())
+            self.assertNotIn('할 일 0', response['week_html'])
+            self.assertIn('할 일 6', response['week_html'])
+            self.assertNotIn('개 더 보기', response['week_html'])
+        response = self.client.post(url, {'status': Task.Status.PENDING}, HTTP_HX_REQUEST='true').json()
+        self.assertIn('할 일 0', response['week_html'])
+        self.assertNotIn('할 일 6', response['week_html'])
+        self.assertIn('＋ 1개 더 보기', response['week_html'])
+
+    def test_reorder_updates_pending_preview_and_inbox_does_not_replace_week(self):
+        first, second = self.task('첫째'), self.task('둘째', sort_order=1)
+        response = self.client.post(reverse('task_reorder'), {
+            'category_id': self.category.pk, 'task_date': self.day.isoformat(),
+            'task_ids': [str(second.pk), str(first.pk)],
+        }, HTTP_HX_REQUEST='true').json()
+        self.assertLess(response['week_html'].index('둘째'), response['week_html'].index('첫째'))
+        inbox = self.task('미지정', task_date=None)
+        response = self.client.post(reverse('task_status', args=[inbox.pk]), {'status': Task.Status.DONE}, HTTP_HX_REQUEST='true').json()
+        self.assertNotIn('week_html', response)

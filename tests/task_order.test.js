@@ -3,9 +3,18 @@ const assert = require('node:assert/strict');
 const fs = require('node:fs');
 const vm = require('node:vm');
 
-function setup() {
+function setup({mobile = false} = {}) {
   const events = {}, requests = [];
   let response = {}, replacement = false;
+  let week;
+  const makeWeek = (html = 'original week') => ({
+    html, dataset: {selectedDate: '2026-10-14'},
+    grid: {scrollLeft: 124, scrollWidth: 784, clientWidth: mobile ? 336 : 784, offsetLeft: 0,
+      querySelector: () => ({offsetLeft: 448, clientWidth: 112})},
+    querySelector() {return this.grid;},
+    replaceWith(next) {week = next;},
+  });
+  week = makeWeek();
   const list = {
     dataset: {taskDate: '2026-10-14', categoryId: 'category-1', reorderUrl: '/tasks/reorder/'},
     items: [],
@@ -49,10 +58,12 @@ function setup() {
     activeElement: null, documentElement: {classList: {add() {}}}, body: {dataset: {draftOwner: '7'}},
     addEventListener(name, handler) {events[name] = handler;},
     getElementById: id => id === 'task-editor-dialog' ? {querySelector: () => ({querySelector: () => null}), addEventListener() {}} : null,
-    querySelector: () => null, querySelectorAll: () => [],
+    querySelector: selector => selector === '[data-week-overview]' ? week : selector === '[data-week-overview] .week-grid' ? week.grid : null,
+    querySelectorAll: () => [],
   };
   vm.runInNewContext(fs.readFileSync('static/app.js', 'utf8'), {
     document, URL, Intl, Date,
+    DOMParser: class {parseFromString(html) {return {querySelector: () => makeWeek(html)};}},
     FormData: class {
       constructor(form) {
         this.values = {};
@@ -74,6 +85,7 @@ function setup() {
   return {
     rows, draft, document, requests,
     get replacement() {return replacement;},
+    get week() {return week;},
     ids: () => list.items.map(row => row.dataset.taskId),
     setResponse(value) {response = value;},
     save(id, status) {rows[id].select.value = status; return events.submit({target: rows[id].form, preventDefault() {}});},
@@ -176,3 +188,48 @@ for (const response of [{ok: false}, {redirected: true}, {body: {ok: false}}]) {
     assert.equal(state.draft.value, '저장하지 않은 기록 🌿');
   });
 }
+
+test('status and drag saves refresh only the week, preserving its horizontal position, focus and writing', async () => {
+  const state = setup();
+  const originalRows = {...state.rows};
+  state.document.activeElement = state.rows.p1.select;
+  state.setResponse({body: {status: 'DONE', task_ids: ['p2', 'x', 't', 'd', 'p1'], week_date: '2026-10-14', week_html: 'six remaining tasks'}});
+  await state.save('p1', 'DONE');
+  assert.equal(state.week.html, 'six remaining tasks');
+  assert.equal(state.week.grid.scrollLeft, 124);
+  assert.equal(state.draft.value, '저장하지 않은 기록 🌿');
+  assert.equal(state.replacement, false);
+  assert.equal(state.rows.p1.select.focusOptions.preventScroll, true);
+  for (const id of state.ids()) assert.equal(state.rows[id], originalRows[id]);
+  state.setResponse({body: {status: 'PENDING', task_ids: ['p1', 'p2', 'x', 't', 'd'], week_date: '2026-10-14', week_html: 'pending restored'}});
+  await state.save('p1', 'PENDING');
+  assert.equal(state.week.html, 'pending restored');
+  state.startDrag('p1'); state.dragOver('p2');
+  state.setResponse({body: {ok: true, task_ids: ['p2', 'p1', 'x', 't', 'd'], week_date: '2026-10-14', week_html: 'reordered tasks'}});
+  await state.drop();
+  assert.equal(state.week.html, 'reordered tasks');
+  assert.equal(state.week.grid.scrollLeft, 124);
+});
+
+test('a late response from a previous day cannot overwrite the newly selected week', async () => {
+  const state = setup(); let finish;
+  state.setResponse({wait: new Promise(resolve => {finish = resolve;})});
+  const pending = state.save('p1', 'DONE');
+  state.week.dataset.selectedDate = '2026-10-15';
+  finish({ok: true, json: async () => ({status: 'DONE', task_ids: ['p2', 'x', 't', 'd', 'p1'], week_date: '2026-10-14', week_html: 'stale week'})});
+  await pending;
+  assert.equal(state.week.html, 'original week');
+  assert.equal(state.week.dataset.selectedDate, '2026-10-15');
+});
+
+test('a failed status save leaves the weekly overview unchanged', async () => {
+  const state = setup();
+  state.setResponse({ok: false, body: {week_date: '2026-10-14', week_html: 'not saved'}});
+  await state.save('p1', 'DONE');
+  assert.equal(state.week.html, 'original week');
+});
+
+test('a narrow weekly board initially reveals the selected date without scrolling the whole page', () => {
+  const state = setup({mobile: true});
+  assert.equal(state.week.grid.scrollLeft, 336);
+});

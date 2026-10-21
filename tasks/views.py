@@ -14,6 +14,7 @@ from django.core.paginator import Paginator
 from django.db.models import Case, F, IntegerField, Q, Value, When
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
+from django.template.loader import render_to_string
 from django.utils import timezone
 from django.utils.dateparse import parse_datetime
 from django.views.decorators.http import require_POST
@@ -57,6 +58,52 @@ def tasks_in_status_order(tasks, *ordering):
     )).order_by("_status_priority", *ordering, "pk")
 
 
+def weekly_context(selected, tasks=None):
+    start = week_start(selected)
+    days = [start + timedelta(days=i) for i in range(7)]
+    today = timezone.localdate()
+    if tasks is None:
+        tasks = Task.objects.filter(
+            task_date__in=days, deleted_at__isnull=True, status=Task.Status.PENDING,
+        ).select_related("category").order_by("category__sort_order", "category__name", "sort_order", "created_at", "pk")
+    pending_by_day = {day: [] for day in days}
+    for task in tasks:
+        if task.status == Task.Status.PENDING:
+            pending_by_day[task.task_date].append(task)
+    record_dates = set(DailyRecord.objects.filter(record_date__in=days).values_list("record_date", flat=True))
+    record_dates.update(DailyPhoto.objects.filter(record_date__in=days).values_list("record_date", flat=True))
+    holidays = dict(Holiday.objects.filter(holiday_date__in=days).values_list("holiday_date", "name"))
+    week = []
+    for day in days:
+        pending = pending_by_day[day]
+        holiday_name = holidays.get(day, "")
+        week.append({
+            "date": day,
+            "pending_count": len(pending),
+            "pending_tasks": pending[:6],
+            "pending_more": max(0, len(pending) - 6),
+            "has_record": day in record_dates,
+            "selected": day == selected,
+            "is_today": day == today,
+            "is_past": day < today,
+            "calendar_class": "holiday" if holiday_name else ("saturday" if day.weekday() == 5 else ("sunday" if day.weekday() == 6 else "")),
+            "holiday_name": holiday_name,
+        })
+    return {
+        "selected_date": selected, "week_start": start, "week_end": days[-1], "week": week,
+        "previous_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": today,
+        "week_pending_count": sum(day["pending_count"] for day in week),
+        "week_past_pending_count": sum(day["pending_count"] for day in week if day["is_past"]),
+    }
+
+
+def weekly_update(selected, request):
+    if selected is None:
+        return {}
+    return {"week_date": selected.isoformat(),
+            "week_html": render_to_string("weekly_overview.html", weekly_context(selected), request=request)}
+
+
 @never_cache
 @login_required
 def dashboard(request, selected_date=None):
@@ -67,31 +114,10 @@ def dashboard(request, selected_date=None):
     by_day = {day: [] for day in days}
     for task in tasks:
         by_day[task.task_date].append(task)
-    record_dates = set(DailyRecord.objects.filter(record_date__in=days).values_list("record_date", flat=True))
-    record_dates.update(DailyPhoto.objects.filter(record_date__in=days).values_list("record_date", flat=True))
-    holidays = {holiday.holiday_date: holiday.name for holiday in Holiday.objects.filter(holiday_date__in=days)}
-    week = []
-    for day in days:
-        day_tasks = by_day[day]
-        important = [task for task in day_tasks if task.is_important]
-        holiday_name = holidays.get(day, "")
-        calendar_class = "holiday" if holiday_name else ("saturday" if day.weekday() == 5 else ("sunday" if day.weekday() == 6 else ""))
-        week.append({
-            "date": day,
-            "count": len(day_tasks),
-            "done_count": sum(task.status == Task.Status.DONE for task in day_tasks),
-            "pending_count": sum(task.status != Task.Status.DONE for task in day_tasks),
-            "important": important[:2],
-            "important_more": max(0, len(important) - 2),
-            "has_record": day in record_dates,
-            "selected": day == selected,
-            "calendar_class": calendar_class,
-            "holiday_name": holiday_name,
-        })
     grouped = [(category, [t for t in by_day[selected] if t.category_id == category.id]) for category in Category.objects.filter(tasks__task_date=selected, tasks__deleted_at__isnull=True).distinct()]
     record = DailyRecord.objects.filter(record_date=selected).first()
     daily_photos = list(DailyPhoto.objects.filter(record_date=selected).order_by("position", "created_at"))
-    context = {"selected_date": selected, "week_start": start, "week_end": start + timedelta(days=6), "week": week, "grouped_tasks": grouped, "previous_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": timezone.localdate(), "record_form": DailyRecordForm(instance=record), "record": record, "record_version": record.updated_at.isoformat() if record else "", "daily_photos": daily_photos, "photo_slots_remaining": 10 - len(daily_photos), "photo_storage_ready": photo_storage_configured()}
+    context = {**weekly_context(selected, tasks), "grouped_tasks": grouped, "record_form": DailyRecordForm(instance=record), "record": record, "record_version": record.updated_at.isoformat() if record else "", "daily_photos": daily_photos, "photo_slots_remaining": 10 - len(daily_photos), "photo_storage_ready": photo_storage_configured()}
     template = "dashboard_fragment.html" if request.headers.get("HX-Request") == "true" else "dashboard.html"
     return render(request, template, context)
 
@@ -422,7 +448,8 @@ def task_status(request, task_id):
             task_date=task.task_date, category_id=task.category_id, deleted_at__isnull=True,
         ), "sort_order", "created_at")
         return JsonResponse({"status": task.status, "label": task.get_status_display(),
-                             "task_ids": [str(task_id) for task_id in ordered.values_list("pk", flat=True)]})
+                             "task_ids": [str(task_id) for task_id in ordered.values_list("pk", flat=True)],
+                             **weekly_update(task.task_date, request)})
     if status_changed:
         messages.success(request, "상태를 저장했습니다.")
     return redirect("day", selected_date=task.task_date or timezone.localdate())
@@ -508,7 +535,7 @@ def task_reorder(request):
             if task.sort_order != position:
                 Task.objects.filter(pk=task.pk).update(sort_order=position, updated_at=changed_at)
     if request.headers.get("HX-Request") == "true":
-        return JsonResponse({"ok": True, "task_ids": task_ids})
+        return JsonResponse({"ok": True, "task_ids": task_ids, **weekly_update(task_date, request)})
     return redirect("day", selected_date=task_date or timezone.localdate())
 
 @login_required
