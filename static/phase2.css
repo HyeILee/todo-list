@@ -58,7 +58,8 @@
 .week-day .week-day-pending{grid-column:2;grid-row:2;justify-self:end;min-width:0;padding:2px 5px;font-size:11px;line-height:18px}
 .week-day-pending.is-empty{opacity:.55}
 .week-day.has-past-pending{border-top:3px solid #cead83;padding-top:10px}
-.week-day .week-task-list{display:flex;flex-direction:column;gap:5px;width:100%;max-height:240px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:#bccdc0 transparent;margin:0 0 10px;padding:2px 3px 2px 0;list-style:none;border-radius:4px}
+/* Contain absolute screen-reader labels within the list's own scrollport. */
+.week-day .week-task-list{position:relative;display:flex;flex-direction:column;gap:5px;width:100%;max-height:240px;overflow-y:auto;overscroll-behavior-y:contain;scrollbar-width:thin;scrollbar-color:#bccdc0 transparent;margin:0 0 10px;padding:2px 3px 2px 0;list-style:none;border-radius:4px}
 .week-task{flex:none;min-width:0;border-left:3px solid var(--status-accent);border-radius:4px;background:var(--status-tint);color:var(--status-ink);font-size:11px;line-height:17px}
 .week-task>a{display:flex;align-items:center;gap:4px;min-width:0;min-height:30px;padding:5px 5px 5px 4px;border-radius:3px}
 .week-task>a:hover{box-shadow:inset 0 0 0 1px var(--status-accent)}
@@ -68,5 +69,5 @@
 .week-empty{padding:10px 0;color:#939e96;font-size:11px;line-height:1.7}
 .week-day .week-more{display:block;align-self:flex-end;margin-top:auto;color:#416950;font-size:11px;font-weight:600;line-height:22px}
 .week-task-list:focus-visible{outline:2px solid #4c9471;outline-offset:2px}
-@media(max-width:900px){.week-section .week-grid{grid-template-columns:repeat(7,minmax(112px,1fr));overflow-x:auto;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#bccdc0 transparent}.week-scroll-hint{display:block;margin:12px 0 0;color:#7b887f;font-size:10px}.week-grid .week-day{min-height:296px;padding-right:8px;padding-left:8px}.week-section .section-top{gap:10px}.week-section h1 small{display:block;margin:5px 0 0}}
+@media(max-width:900px){.week-section .week-grid{grid-template-columns:repeat(7,minmax(112px,1fr));overflow-x:auto;overflow-y:hidden;overscroll-behavior-x:contain;scroll-snap-type:x proximity;scrollbar-width:thin;scrollbar-color:#bccdc0 transparent}.week-scroll-hint{display:block;margin:12px 0 0;color:#7b887f;font-size:10px}.week-grid .week-day{min-height:296px;padding-right:8px;padding-left:8px}.week-section .section-top{gap:10px}.week-section h1 small{display:block;margin:5px 0 0}}
 @media(prefers-reduced-motion:reduce){.week-grid .week-day{transition:none}}
