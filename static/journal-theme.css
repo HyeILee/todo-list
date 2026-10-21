@@ -1,0 +1,162 @@
+/* Warm paper and dusty rose. Status and user-selected note colors stay semantic. */
+:root {
+  --page: #f9f5f1;
+  --paper: #fffdfa;
+  --ink: #4b3f44;
+  --muted: #77666e;
+  --line: #e7dce0;
+  --accent: #936075;
+  --accent-deep: #7e4e62;
+  --accent-soft: #f5e9ee;
+  --focus: #ad8395;
+  --green: var(--accent);
+  color: var(--ink);
+  background: var(--page);
+}
+
+body {
+  background: radial-gradient(ellipse at 90% 0, #f1e3e8, transparent 34rem), var(--page);
+}
+
+.topbar, .mobile-nav { background: #fffdfaf5; }
+.brand-mark { background: var(--accent); }
+.topbar nav a, .mobile-nav a, .account, .text-button, .row-action,
+.section-top h1 small, .task-copy small, .category header small,
+.hint, .back, .settings-links span, .login-source, .login-aside p,
+.week-guide, .week-weekday, .week-empty, .week-scroll-hint,
+.result-heading, .result-row time, .result-category, .result-copy small,
+.pagination, .record-result h2, .confirm-page p, .conflict-page > p,
+.conflict-grid dt, .inbox li > span, .char-count, .drag-handle,
+.backup-page > p, .restore-panel > p, .backup-reminder-dialog p,
+.backup-reminder-settings p, .backup-confirm-panel p,
+.photo-album > .section-top p, .daily-photo-grid figcaption, .album-grid figcaption {
+  color: var(--muted);
+}
+.topbar nav a:hover, .mobile-nav a:hover, .text-button:hover, .row-action:hover,
+.back:hover, .settings-links b, .record-date, .album-day h2 a, .record-exists {
+  color: var(--accent);
+}
+
+.button, .icon { background: var(--paper); color: var(--ink); border-radius: 8px; }
+.button:not(.primary):not(.danger):hover, .icon:hover { background: var(--accent-soft); }
+.primary { background: var(--accent); border-color: var(--accent); color: #fff; }
+.primary:hover { background: var(--accent-deep); border-color: var(--accent-deep); }
+.button.danger { background: #a84e3b; border-color: #a84e3b; color: #fff; }
+.quiet { color: var(--muted); }
+
+.category, .record-editor, .daily-photos, .filter-panel, .result-list,
+.record-results, .confirm-page, .editor, .inbox, .settings-links,
+.quick-add-form, .backup-page, .conflict-page, .import-panel, .passkey-card {
+  background: var(--paper);
+  border-color: var(--line);
+  border-radius: 10px;
+  box-shadow: 0 3px 12px #4b3f4404;
+}
+.category header, .settings-row, .settings-links a { border-bottom-color: var(--line); }
+.settings-links a:hover { background: #faf1f4; }
+.empty { background: #fffdfa99; border-color: #d9c8d0; color: var(--muted); }
+
+/* Small paper labels, with just one decorative star by the weekly heading. */
+.eyebrow {
+  display: block;
+  width: fit-content;
+  max-width: 100%;
+  padding: 4px 9px;
+  border-radius: 3px;
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+  letter-spacing: 1.2px;
+}
+.week-section .eyebrow { position: relative; padding-right: 27px; }
+.week-section .eyebrow::after {
+  content: "";
+  position: absolute;
+  right: 9px;
+  top: 50%;
+  width: 10px;
+  height: 10px;
+  transform: translateY(-50%) rotate(12deg);
+  background: #b78b76;
+  clip-path: polygon(50% 0, 62% 35%, 100% 38%, 70% 61%, 80% 100%, 50% 77%, 20% 100%, 30% 61%, 0 38%, 38% 35%);
+  pointer-events: none;
+}
+.record-editor { position: relative; }
+.record-editor::before {
+  content: "";
+  position: absolute;
+  top: -5px;
+  left: 22px;
+  width: 48px;
+  height: 10px;
+  border-radius: 1px;
+  background: #d9b5c47a;
+  transform: rotate(-3deg);
+  pointer-events: none;
+}
+
+.day { background: var(--paper); }
+.day.selected, .week-grid .week-day.selected {
+  background: #f9eef2;
+  border-color: var(--accent);
+  box-shadow: inset 0 0 0 1px var(--accent);
+}
+.week-grid .week-day:hover { background: #fcf5f7; border-color: #c5a3b2; }
+.week-grid .week-day.selected:hover { background: #f9eef2; border-color: var(--accent); }
+.week-day.is-today .week-date { text-decoration-color: var(--accent); }
+.week-record-dot { background: var(--accent); }
+.week-day .week-more { color: var(--accent); }
+.week-section .week-grid, .week-day .week-task-list { scrollbar-color: #d1bac4 transparent; }
+
+.field input:not([type=checkbox]), .field select, .field textarea,
+.quick-add-form input, .quick-add-form select, .dialog-fields input:not([type=checkbox]),
+.dialog-fields select, .dialog-fields textarea, .filter-grid .field input,
+.filter-grid .field select, .login-form input, .backup-interval-form select {
+  background: var(--paper);
+  border-color: #d8c7cf;
+}
+.category select { background: var(--paper); border-color: #d8c7cf; color: var(--ink); }
+.status-form::after { border-top-color: var(--accent); }
+.filter-options li label, .filter-options > div[id] > div > label,
+#id_statuses > div > label, .inline-check { color: var(--muted); }
+
+.record-library-links a { background: var(--paper); color: var(--accent); }
+.record-library-links a:hover { background: var(--accent-soft); }
+.note-tools button, .note-tools select { background: #f8f0f3; border-color: var(--line); color: var(--muted); }
+.note-tools button[aria-pressed=true] { background: #ecd8e2; color: var(--accent-deep); }
+.help-toggle { color: var(--muted); }
+.help-popover { background: var(--paper); border-color: var(--line); color: var(--muted); box-shadow: 0 6px 24px #4b3f441a; }
+.photo-category-filter a { background: var(--paper); color: var(--muted); }
+.photo-category-filter a.selected { background: var(--accent); border-color: var(--accent); color: #fff; }
+.daily-photo-grid figure, .album-grid figure { background: var(--page); }
+
+.login-wrap { background: var(--paper); border-radius: 14px; box-shadow: 0 18px 50px #68465410; }
+.login-aside { background: linear-gradient(145deg, #f0dfe6, #f6eee6); }
+.task-dialog, .backup-reminder-dialog { background: var(--paper); }
+.task-dialog::backdrop, .backup-reminder-dialog::backdrop { background: #4b3f4466; }
+.status-toast { background: var(--ink); }
+.notice:not(.notice-warning):not(.backup-critical) {
+  border-left-color: var(--accent);
+  background: var(--accent-soft);
+  color: var(--accent-deep);
+}
+.backup-last { background: var(--accent-soft); color: var(--muted); }
+.import-steps b { background: var(--accent-soft); }
+.import-table { background: var(--paper); }
+.import-table th { background: #f4ebef; }
+.import-panel p, .import-preview > p, .import-confirm p, .import-table small { color: var(--muted); }
+
+button:focus-visible, a:focus-visible, select:focus-visible,
+.field input:focus, .field select:focus, .field textarea:focus,
+.login-form input:focus-visible, .quick-add-form input:focus-visible,
+.dialog-fields input:focus-visible, .dialog-fields textarea:focus-visible,
+.note-tools button:focus-visible, .note-tools select:focus-visible,
+.help-toggle:focus-visible, .photo-delete-button:focus-visible,
+.week-task-list:focus-visible {
+  outline: 3px solid var(--focus);
+  outline-offset: 2px;
+}
+
+@media (max-width: 760px) {
+  .record-editor::before { left: 18px; width: 38px; height: 8px; }
+  .eyebrow { letter-spacing: 1px; }
+}

@@ -10,6 +10,7 @@
 	<link rel="stylesheet" href="{% static 'responsive.css' %}">
 	<link rel="stylesheet" href="{% static 'notes.css' %}?v=4">
 	{% block extra_styles %}{% endblock %}
+	<link rel="stylesheet" href="{% static 'journal-theme.css' %}?v=1">
 </head>
 <body data-draft-owner="{{ request.user.pk|default:'anonymous' }}">
 	<header class="topbar"><a class="brand" href="{% url 'home' %}"><span class="brand-mark">T</span>To-do List</a>{% if request.user.is_authenticated %}<nav class="main-nav" aria-label="주 메뉴"><a href="{% url 'home' %}">한 주와 오늘</a><a href="{% url 'task_list' %}">전체 퀘스트</a><a href="{% url 'record_list' %}">일기장</a><a href="{% url 'photo_album' %}">사진첩</a><a href="{% url 'settings_home' %}">설정</a></nav><div class="account"><span class="user-name">{{ request.user.get_username }}</span><form method="post" action="{% url 'logout' %}" data-clear-local-drafts>{% csrf_token %}<button class="text-button">로그아웃</button></form></div>{% endif %}</header>
