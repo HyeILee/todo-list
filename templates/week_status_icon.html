@@ -1,0 +1,3 @@
+<svg class="week-status-icon" data-status-icon="{{ status }}" viewBox="0 0 20 20" focusable="false" {% if label %}role="img" aria-label="{{ label }}"{% else %}aria-hidden="true"{% endif %}>
+  {% if status == 'DONE' %}<circle cx="10" cy="10" r="6.5"/>{% elif status == 'NOT_DONE' %}<path d="m5 5 10 10M15 5 5 15"/>{% elif status == 'PARTIAL' %}<path d="m10 3 8 14H2Z"/>{% else %}<rect x="3.5" y="3.5" width="13" height="13" rx="3" stroke-dasharray="3 3"/>{% endif %}
+</svg>

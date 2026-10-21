@@ -63,25 +63,26 @@ def weekly_context(selected, tasks=None):
     days = [start + timedelta(days=i) for i in range(7)]
     today = timezone.localdate()
     if tasks is None:
-        tasks = Task.objects.filter(
-            task_date__in=days, deleted_at__isnull=True, status=Task.Status.PENDING,
-        ).select_related("category").order_by("category__sort_order", "category__name", "sort_order", "created_at", "pk")
-    pending_by_day = {day: [] for day in days}
+        tasks = tasks_in_status_order(Task.objects.filter(
+            task_date__in=days, deleted_at__isnull=True,
+        ).select_related("category"), "category__sort_order", "category__name", "sort_order", "created_at")
+    by_day = {day: [] for day in days}
+    status_counts = {status: 0 for status in TASK_STATUS_ORDER}
     for task in tasks:
-        if task.status == Task.Status.PENDING:
-            pending_by_day[task.task_date].append(task)
+        by_day[task.task_date].append(task)
+        status_counts[task.status] += 1
     record_dates = set(DailyRecord.objects.filter(record_date__in=days).values_list("record_date", flat=True))
     record_dates.update(DailyPhoto.objects.filter(record_date__in=days).values_list("record_date", flat=True))
     holidays = dict(Holiday.objects.filter(holiday_date__in=days).values_list("holiday_date", "name"))
     week = []
     for day in days:
-        pending = pending_by_day[day]
+        day_tasks = by_day[day]
         holiday_name = holidays.get(day, "")
         week.append({
             "date": day,
-            "pending_count": len(pending),
-            "pending_tasks": pending[:6],
-            "pending_more": max(0, len(pending) - 6),
+            "count": len(day_tasks),
+            "pending_count": sum(task.status == Task.Status.PENDING for task in day_tasks),
+            "tasks": day_tasks,
             "has_record": day in record_dates,
             "selected": day == selected,
             "is_today": day == today,
@@ -94,6 +95,8 @@ def weekly_context(selected, tasks=None):
         "previous_week": start - timedelta(days=7), "next_week": start + timedelta(days=7), "today": today,
         "week_pending_count": sum(day["pending_count"] for day in week),
         "week_past_pending_count": sum(day["pending_count"] for day in week if day["is_past"]),
+        "week_task_count": sum(status_counts.values()),
+        "week_status_summary": [{"value": status, "label": Task.Status(status).label, "count": status_counts[status]} for status in TASK_STATUS_ORDER],
     }
 
 

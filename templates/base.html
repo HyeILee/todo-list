@@ -6,7 +6,7 @@
 	<meta name="viewport" content="width=device-width, initial-scale=1">
 	<title>{% block title %}To-do List · 업무 기록{% endblock %}</title>
 	<link rel="stylesheet" href="{% static 'app.css' %}">
-	<link rel="stylesheet" href="{% static 'phase2.css' %}?v=6">
+	<link rel="stylesheet" href="{% static 'phase2.css' %}?v=7">
 	<link rel="stylesheet" href="{% static 'responsive.css' %}">
 	<link rel="stylesheet" href="{% static 'notes.css' %}?v=4">
 	{% block extra_styles %}{% endblock %}
@@ -23,7 +23,7 @@
   <div class="form-actions"><form method="post" action="{% url 'backup_reminder_update' %}" data-backup-snooze>{% csrf_token %}<input type="hidden" name="action" value="snooze"><button class="button quiet" type="submit">하루 뒤 알림</button></form><a class="button primary" href="{% url 'backup_page' %}">백업하러 가기</a></div><p class="hint" data-backup-reminder-error role="status"></p>
 </dialog>{% endif %}
 <script src="{% static 'backup-reminder.js' %}?v=2" defer></script>
-<script src="{% static 'app.js' %}?v=8" defer></script>
+<script src="{% static 'app.js' %}?v=9" defer></script>
 <script src="{% static 'notes.js' %}?v=3" defer></script>
 {% if request.user.is_authenticated %}<script src="{% static 'session-security.js' %}" data-activity-url="{% url 'session_activity' %}" data-idle-seconds="1800" defer></script>{% endif %}
 <script src="{% static 'photos.js' %}?v=5" defer></script>

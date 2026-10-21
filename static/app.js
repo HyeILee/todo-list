@@ -223,8 +223,15 @@
     const replacement = new DOMParser().parseFromString(result.week_html, "text/html").querySelector("[data-week-overview]");
     if (!replacement) return;
     const scrollLeft = current.querySelector(".week-grid")?.scrollLeft || 0;
+    const dayScroll = new Map(Array.from(current.querySelectorAll("[data-week-date]"), (day) => [
+      day.dataset.weekDate, day.querySelector(".week-task-list")?.scrollTop || 0,
+    ]));
     current.replaceWith(replacement);
     replacement.querySelector(".week-grid").scrollLeft = scrollLeft;
+    replacement.querySelectorAll("[data-week-date]").forEach((day) => {
+      const list = day.querySelector(".week-task-list");
+      if (list) list.scrollTop = dayScroll.get(day.dataset.weekDate) || 0;
+    });
   };
 
   const updateDay = async (url, addHistory = true) => {

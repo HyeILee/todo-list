@@ -11,7 +11,9 @@ function setup({mobile = false} = {}) {
     html, dataset: {selectedDate: '2026-10-14'},
     grid: {scrollLeft: 124, scrollWidth: 784, clientWidth: mobile ? 336 : 784, offsetLeft: 0,
       querySelector: () => ({offsetLeft: 448, clientWidth: 112})},
+    dayList: {scrollTop: html === 'original week' ? 72 : 0},
     querySelector() {return this.grid;},
+    querySelectorAll() {return [{dataset: {weekDate: '2026-10-14'}, querySelector: () => this.dayList}];},
     replaceWith(next) {week = next;},
   });
   week = makeWeek();
@@ -197,6 +199,7 @@ test('status and drag saves refresh only the week, preserving its horizontal pos
   await state.save('p1', 'DONE');
   assert.equal(state.week.html, 'six remaining tasks');
   assert.equal(state.week.grid.scrollLeft, 124);
+  assert.equal(state.week.dayList.scrollTop, 72);
   assert.equal(state.draft.value, '저장하지 않은 기록 🌿');
   assert.equal(state.replacement, false);
   assert.equal(state.rows.p1.select.focusOptions.preventScroll, true);
@@ -209,6 +212,7 @@ test('status and drag saves refresh only the week, preserving its horizontal pos
   await state.drop();
   assert.equal(state.week.html, 'reordered tasks');
   assert.equal(state.week.grid.scrollLeft, 124);
+  assert.equal(state.week.dayList.scrollTop, 72);
 });
 
 test('a late response from a previous day cannot overwrite the newly selected week', async () => {

@@ -46,7 +46,7 @@ class DayLogFeatureTests(TestCase):
         response = self.client.get(reverse("day", args=["2026-10-02"]))
         summary = next(item for item in response.context["week"] if item["date"] == date(2026, 10, 2))
         self.assertEqual(summary["pending_count"], 1)
-        self.assertEqual([task.status for task in summary["pending_tasks"]], [Task.Status.PENDING])
+        self.assertEqual([task.status for task in summary["tasks"]], [Task.Status.PENDING, Task.Status.NOT_DONE, Task.Status.PARTIAL, Task.Status.DONE])
         self.assertNotContains(response, "(완료 1건, 미결 3건)")
 
     def test_task_dialog_omits_save_and_add_button(self):
@@ -705,11 +705,11 @@ class WeeklyOverviewTests(TestCase):
         context = weekly_context(self.day)
         return context, render_to_string('weekly_overview.html', context)
 
-    def test_only_pending_in_this_week_with_cap_and_exact_remainder(self):
+    def test_all_statuses_and_all_tasks_are_included_only_in_this_week(self):
         from django.utils import timezone
         pending = [self.task(f'남은 일 {i}', sort_order=i) for i in range(9)]
         for status in (Task.Status.DONE, Task.Status.NOT_DONE, Task.Status.PARTIAL):
-            self.task(f'제외 상태 {status}', status=status, is_important=True)
+            self.task(f'표시한 일 {status}', status=status, is_important=True)
         self.task('삭제한 일', deleted_at=timezone.now())
         self.task('날짜 미정인 일', task_date=None)
         self.task('지난주 일', task_date=date(2026, 10, 18))
@@ -717,12 +717,13 @@ class WeeklyOverviewTests(TestCase):
         context, html = self.overview()
         day = context['week'][2]
         self.assertEqual(context['week_pending_count'], 9)
-        self.assertEqual(day['pending_tasks'], pending[:6])
-        self.assertEqual((day['pending_count'], day['pending_more']), (9, 3))
-        self.assertIn('＋ 3개 더 보기', html)
-        for task in pending[:6]:
+        self.assertEqual(day['tasks'][:9], pending)
+        self.assertEqual((day['pending_count'], day['count'], context['week_task_count']), (9, 12, 12))
+        self.assertIn('전체 12개 보기', html)
+        self.assertNotIn('개 더 보기', html)
+        for task in day['tasks']:
             self.assertIn(task.title, html)
-        for title in ('남은 일 6', '남은 일 7', '남은 일 8', '제외 상태', '삭제한 일', '날짜 미정인 일', '지난주 일', '다음주 일'):
+        for title in ('삭제한 일', '날짜 미정인 일', '지난주 일', '다음주 일'):
             self.assertNotIn(title, html)
         response = self.client.get(reverse('day', args=[self.day]))
         self.assertTemplateUsed(response, 'weekly_overview.html')
@@ -748,8 +749,9 @@ class WeeklyOverviewTests(TestCase):
         second = self.task('둘째', sort_order=5)
         first = self.task('<img src=x onerror=alert(1)>', sort_order=1, is_important=True)
         context, html = self.overview()
-        self.assertEqual(context['week'][2]['pending_tasks'], [first, second, last])
-        self.assertIn('week-task coral', html)
+        self.assertEqual(context['week'][2]['tasks'], [first, second, last])
+        self.assertIn('week-task status-pending', html)
+        self.assertIn('업무 · 미정 ·', html)
         self.assertIn('aria-label="중요"', html)
         self.assertIn('&lt;img src=x onerror=alert(1)&gt;', html)
         self.assertNotIn('<img src=x', html)
@@ -762,7 +764,7 @@ class WeeklyOverviewTests(TestCase):
         self.assertEqual([item['date'] for item in context['week']], [date(2026, 12, 28), date(2026, 12, 29), date(2026, 12, 30), date(2026, 12, 31), date(2027, 1, 1), date(2027, 1, 2), date(2027, 1, 3)])
         self.assertEqual(context['week_pending_count'], 0)
         self.assertTrue(context['week'][3]['has_record'])
-        self.assertEqual(self.overview()[1].count('미정인<br>할 일이 없어요'), 7)
+        self.assertEqual(self.overview()[1].count('등록된<br>할 일이 없어요'), 7)
 
     def test_week_queries_do_not_grow_per_task_or_category(self):
         from .views import weekly_context
@@ -770,23 +772,44 @@ class WeeklyOverviewTests(TestCase):
             self.task(f'할 일 {index}', category=Category.objects.create(name=f'카테고리 {index}'))
         with self.assertNumQueries(4):
             context = weekly_context(self.day)
-            self.assertEqual(len(context['week'][2]['pending_tasks']), 6)
-            for task in context['week'][2]['pending_tasks']:
+            self.assertEqual(len(context['week'][2]['tasks']), 12)
+            for task in context['week'][2]['tasks']:
                 self.assertTrue(task.category.name)
 
-    def test_status_updates_remove_refill_and_restore_pending_preview(self):
+    def test_status_updates_keep_all_tasks_and_update_symbols_counts_and_order(self):
         pending = [self.task(f'할 일 {i}', sort_order=i) for i in range(7)]
         url = reverse('task_status', args=[pending[0].pk])
         for status in (Task.Status.DONE, Task.Status.NOT_DONE, Task.Status.PARTIAL):
             response = self.client.post(url, {'status': status}, HTTP_HX_REQUEST='true').json()
             self.assertEqual(response['week_date'], self.day.isoformat())
-            self.assertNotIn('할 일 0', response['week_html'])
+            self.assertIn('할 일 0', response['week_html'])
             self.assertIn('할 일 6', response['week_html'])
+            self.assertIn(f'week-task status-{status.lower()}', response['week_html'])
+            self.assertIn(f'data-status-icon="{status}"', response['week_html'])
+            self.assertIn('aria-label="미정 6개"', response['week_html'])
+            self.assertIn('전체 7개 보기', response['week_html'])
+            self.assertLess(response['week_html'].index('>할 일 6<'), response['week_html'].index('>할 일 0<'))
             self.assertNotIn('개 더 보기', response['week_html'])
         response = self.client.post(url, {'status': Task.Status.PENDING}, HTTP_HX_REQUEST='true').json()
         self.assertIn('할 일 0', response['week_html'])
-        self.assertNotIn('할 일 6', response['week_html'])
-        self.assertIn('＋ 1개 더 보기', response['week_html'])
+        self.assertIn('할 일 6', response['week_html'])
+        self.assertIn('aria-label="미정 7개"', response['week_html'])
+        self.assertLess(response['week_html'].index('>할 일 0<'), response['week_html'].index('>할 일 6<'))
+
+    def test_status_counts_symbols_and_reading_order_match_the_task_list(self):
+        from .views import TASK_STATUS_ORDER
+        for rank, status in enumerate(TASK_STATUS_ORDER):
+            for index in range(rank + 1):
+                self.task(f'{status} 일 {index}', status=status)
+        context, html = self.overview()
+        self.assertEqual([(item['value'], item['count']) for item in context['week_status_summary']], [(status, rank + 1) for rank, status in enumerate(TASK_STATUS_ORDER)])
+        self.assertEqual([task.status for task in context['week'][2]['tasks']], [status for rank, status in enumerate(TASK_STATUS_ORDER) for _ in range(rank + 1)])
+        for status in TASK_STATUS_ORDER:
+            self.assertIn(f'class="week-task status-{status.lower()}"', html)
+            self.assertIn(f'data-status-icon="{status}"', html)
+        self.assertIn('stroke-dasharray="3 3"', html)
+        self.assertIn('tabindex="0" aria-label="10월 21일 할 일 10개"', html)
+        self.assertNotIn('미정인 할 일만', html)
 
     def test_reorder_updates_pending_preview_and_inbox_does_not_replace_week(self):
         first, second = self.task('첫째'), self.task('둘째', sort_order=1)
