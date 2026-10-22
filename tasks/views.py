@@ -638,6 +638,7 @@ def task_status_statistics(tasks):
         Task.Status.DONE: "완료",
     }
     items = []
+    offset = 0
     for status in TASK_STATUS_ORDER:
         count = counts.get(status, 0)
         percentage = (Decimal(count * 100) / total if total else Decimal(0))
@@ -647,7 +648,10 @@ def task_status_statistics(tasks):
             "label": labels[status],
             "count": count,
             "percentage": format(percentage.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), ".1f"),
+            "bar_x": format(Decimal(offset * 100) / total if total else Decimal(0), ".6f"),
+            "bar_width": format(percentage, ".6f"),
         })
+        offset += count
     return {"total": total, "items": items}
 
 

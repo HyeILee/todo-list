@@ -964,3 +964,16 @@ class TaskStatusStatisticsTests(TestCase):
             statistics = task_status_statistics(tasks_in_status_order(Task.objects.select_related('category')))
         self.assertEqual(statistics['total'], 100)
         self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (100, '100.0'))
+
+    def test_chart_uses_precise_proportions_and_renders_under_strict_style_policy(self):
+        self.task(Task.Status.PENDING)
+        self.task(Task.Status.DONE)
+        self.task(Task.Status.DONE)
+        response, statistics = self.statistics()
+        items = {item['status']: item for item in statistics['items']}
+        self.assertEqual(items[Task.Status.PENDING]['bar_width'], '33.333333')
+        self.assertEqual(items[Task.Status.DONE]['bar_x'], '33.333333')
+        self.assertEqual(items[Task.Status.DONE]['bar_width'], '66.666667')
+        self.assertIn("style-src 'self'", response['Content-Security-Policy'])
+        self.assertContains(response, 'width="66.666667"')
+        self.assertNotContains(response, 'style=')

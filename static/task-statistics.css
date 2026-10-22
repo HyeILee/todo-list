@@ -11,8 +11,8 @@
 .task-statistics-heading strong { margin-left: 4px; color: var(--ink); font-size: 15px; }
 .task-statistics-scope, .task-category-hint, .task-statistics-empty { margin: 9px 0 0; color: var(--muted); font-size: 12px; line-height: 1.7; }
 .task-category-hint { font-size: 11px; }
-.task-statistics-bar { display: flex; gap: 2px; height: 12px; margin: 18px 0; overflow: hidden; border-radius: 999px; background: var(--line); }
-.task-statistics-bar > span { flex-basis: 0; min-width: 0; background: var(--stat-accent); }
+.task-statistics-bar { display: block; width: 100%; height: 12px; margin: 18px 0; overflow: hidden; border-radius: 999px; background: var(--line); }
+.task-statistics-bar > rect { fill: var(--stat-accent); }
 .task-stat-pending { --stat-accent: #5084b4; --stat-tint: #eaf2fa; --stat-ink: #285f8c; }
 .task-stat-not_done { --stat-accent: #cc796b; --stat-tint: #faece8; --stat-ink: #94483b; }
 .task-stat-partial { --stat-accent: #c1913d; --stat-tint: #faf1dd; --stat-ink: #856020; }

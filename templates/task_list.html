@@ -14,7 +14,7 @@
   <div class="task-statistics-heading"><h2 id="task-statistics-heading">퀘스트 진행 현황</h2>{% if task_statistics != None %}<p>조회 결과 전체 <strong>{{ task_statistics.total }}건</strong></p>{% endif %}</div>
   {% if task_statistics != None %}
   <p class="task-statistics-scope">현재 검색 조건에 맞는 모든 페이지를 집계합니다.</p>
-  <div class="task-statistics-bar{% if not task_statistics.total %} is-empty{% endif %}" aria-hidden="true">{% for item in task_statistics.items %}{% if item.count %}<span class="task-stat-{{ item.key }}" style="flex-grow:{{ item.count }}"></span>{% endif %}{% endfor %}</div>
+  <svg class="task-statistics-bar" viewBox="0 0 100 12" preserveAspectRatio="none" aria-hidden="true" focusable="false">{% for item in task_statistics.items %}{% if item.count %}<rect class="task-stat-{{ item.key }}" x="{{ item.bar_x }}" width="{{ item.bar_width }}" height="12"/>{% endif %}{% endfor %}</svg>
   <ul class="task-statistics-grid" aria-label="상태별 건수와 비율">
     {% for item in task_statistics.items %}<li class="task-stat-{{ item.key }}"><span class="task-stat-label">{% include 'week_status_icon.html' with status=item.status label='' %}{{ item.label }}</span><strong class="task-stat-percentage">{{ item.percentage }}<small>%</small></strong><span class="task-stat-count">{{ item.count }}건</span></li>{% endfor %}
   </ul>
