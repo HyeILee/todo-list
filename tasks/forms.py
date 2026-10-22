@@ -93,6 +93,19 @@ class TaskFilterForm(AccessibleFormMixin, forms.Form):
         return cleaned
 
 
+class TaskStatisticsForm(AccessibleFormMixin, forms.Form):
+    date_from = forms.DateField(required=False, label="시작일", widget=forms.DateInput(attrs={"type": "date"}))
+    date_to = forms.DateField(required=False, label="종료일", widget=forms.DateInput(attrs={"type": "date"}))
+    category = forms.ModelChoiceField(queryset=Category.objects.all(), required=False,
+                                     empty_label="전체 분류", label="분류")
+
+    def clean(self):
+        cleaned = super().clean()
+        if cleaned.get("date_from") and cleaned.get("date_to") and cleaned["date_from"] > cleaned["date_to"]:
+            raise forms.ValidationError("시작일은 종료일보다 늦을 수 없습니다.")
+        return cleaned
+
+
 class RecordFilterForm(AccessibleFormMixin, forms.Form):
     SECTIONS = [
         ("", "전체"),

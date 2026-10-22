@@ -832,6 +832,9 @@ class TaskStatusStatisticsTests(TestCase):
         self.category = Category.objects.create(name='나의 과제')
         self.other = Category.objects.create(name='생활')
         self.day = date(2026, 10, 22)
+        clock = mock.patch('tasks.views.timezone.localdate', return_value=self.day)
+        self.clock = clock.start()
+        self.addCleanup(clock.stop)
 
     def task(self, status, **changes):
         values = dict(title='같은 제목의 반복 일정', category=self.category,
@@ -866,46 +869,50 @@ class TaskStatusStatisticsTests(TestCase):
         })
         self.assertEqual(response.context['page_obj'].paginator.count, statistics['total'])
         self.assertContains(response, '퀘스트 진행 현황')
-        self.assertContains(response, 'task-statistics.css?v=1')
+        self.assertContains(response, 'task-statistics.css?v=2')
 
-    def test_single_or_multiple_categories_and_inclusive_dates_change_the_scope(self):
+    def test_statistics_category_and_inclusive_dates_are_independent_of_archive(self):
         self.task(Task.Status.DONE, task_date=date(2026, 10, 1))
         self.task(Task.Status.DONE, task_date=date(2026, 10, 31))
         self.task(Task.Status.NOT_DONE, task_date=date(2026, 10, 31))
         self.task(Task.Status.PARTIAL, task_date=date(2026, 9, 30))
         self.task(Task.Status.PENDING, category=self.other)
-        params = {'categories': [self.category.pk], 'date_from': '2026-10-01', 'date_to': '2026-10-31'}
-        _, statistics = self.statistics(params)
+        params = {'categories': [self.other.pk], 'stats-category': self.category.pk,
+                  'stats-date_from': '2026-10-01', 'stats-date_to': '2026-10-31'}
+        response, statistics = self.statistics(params)
         self.assertEqual(statistics['total'], 3)
+        self.assertEqual(response.context['page_obj'].paginator.count, 1)
+        self.assertEqual(response.context['stats_category_label'], self.category.name)
         self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (2, '66.7'))
         self.assertEqual(self.by_status(statistics)[Task.Status.NOT_DONE], (1, '33.3'))
-        params['categories'].append(self.other.pk)
+        params['stats-category'] = ''
         _, statistics = self.statistics(params)
         self.assertEqual(statistics['total'], 4)
         self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '25.0'))
 
-    def test_search_important_and_status_filters_match_the_result_list(self):
+    def test_archive_search_important_and_status_filters_do_not_hide_statistics_statuses(self):
         self.task(Task.Status.DONE, details='집계할 메모', is_important=True)
         self.task(Task.Status.PENDING, title='집계할 제목', is_important=True)
         self.task(Task.Status.NOT_DONE, details='집계할 메모')
         self.task(Task.Status.PARTIAL, is_important=True)
         params = {'q': '집계할', 'important': 'on'}
         response, statistics = self.statistics(params)
-        self.assertEqual(statistics['total'], 2)
-        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (1, '50.0'))
+        self.assertEqual(statistics['total'], 4)
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (1, '25.0'))
         self.assertEqual(response.context['page_obj'].paginator.count, 2)
         params['statuses'] = [Task.Status.PENDING]
         _, statistics = self.statistics(params)
-        self.assertEqual(statistics['total'], 1)
-        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '100.0'))
-        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (0, '0.0'))
+        self.assertEqual(statistics['total'], 4)
+        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '25.0'))
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (1, '25.0'))
 
     def test_date_modes_distinguish_undecided_status_from_undated_tasks(self):
         self.task(Task.Status.DONE)
         self.task(Task.Status.PENDING, task_date=None)
-        for params, total, pending in [({}, 1, 0), ({'date_mode': 'all'}, 2, 1),
-                                       ({'date_mode': 'inbox'}, 1, 1),
-                                       ({'date_mode': 'all', 'date_from': '2026-10-01'}, 1, 0)]:
+        for params, total, pending in [({}, 1, 0), ({'date_mode': 'all'}, 1, 0),
+                                       ({'date_mode': 'inbox'}, 1, 0),
+                                       ({'stats-date_from': '', 'stats-date_to': ''}, 2, 1),
+                                       ({'stats-date_from': '2026-10-01', 'stats-date_to': ''}, 1, 0)]:
             with self.subTest(params=params):
                 _, statistics = self.statistics(params)
                 self.assertEqual(statistics['total'], total)
@@ -916,7 +923,8 @@ class TaskStatusStatisticsTests(TestCase):
                                       category=self.category, status=Task.Status.DONE) for index in range(60)])
         self.task(Task.Status.PENDING)
         first_response, first = self.statistics()
-        second_response, second = self.statistics({'page': '2', 'ordering': 'date_asc'})
+        second_response, second = self.statistics({'page': '2', 'ordering': 'date_asc',
+                                                  'stats-date_from': '2026-10-01', 'stats-date_to': '2026-10-31'})
         self.assertEqual(len(first_response.context['page_obj']), 50)
         self.assertEqual(len(second_response.context['page_obj']), 11)
         self.assertEqual(first, second)
@@ -925,7 +933,7 @@ class TaskStatusStatisticsTests(TestCase):
         self.assertEqual(self.by_status(first)[Task.Status.PENDING], (1, '1.6'))
 
     def test_empty_results_display_four_zeros_without_division_errors(self):
-        for params in ({}, {'q': '일치하지 않음'}):
+        for params in ({}, {'stats-category': self.other.pk}):
             response, statistics = self.statistics(params)
             self.assertEqual(statistics['total'], 0)
             self.assertTrue(all(item['count'] == 0 and item['percentage'] == '0.0' for item in statistics['items']))
@@ -933,13 +941,68 @@ class TaskStatusStatisticsTests(TestCase):
 
     def test_invalid_filters_do_not_present_unfiltered_numbers_as_statistics(self):
         self.task(Task.Status.DONE)
-        for params in ({'date_from': 'invalid'}, {'date_from': '2026-10-31', 'date_to': '2026-10-01'},
-                       {'categories': ['not-a-category']}, {'statuses': ['INVALID']}):
+        for params in ({'stats-date_from': 'invalid'}, {'stats-date_from': '2026-10-31', 'stats-date_to': '2026-10-01'},
+                       {'stats-category': 'not-a-category'}):
             with self.subTest(params=params):
                 response, statistics = self.statistics(params)
                 self.assertIsNone(statistics)
-                self.assertContains(response, '검색 조건을 수정한 뒤 검색하면 진행 현황을 볼 수 있어요.')
+                self.assertContains(response, '현황의 기간과 분류를 확인한 뒤 다시 조회해 주세요.')
                 self.assertNotContains(response, 'aria-label="상태별 건수와 비율"')
+
+    def test_default_month_includes_first_and_last_day_without_filtering_archive(self):
+        for day in (date(2026, 9, 30), date(2026, 10, 1), date(2026, 10, 31), date(2026, 11, 1)):
+            self.task(Task.Status.DONE, task_date=day)
+        response, statistics = self.statistics()
+        self.assertEqual(statistics['total'], 2)
+        self.assertEqual(response.context['page_obj'].paginator.count, 4)
+        self.assertEqual(response.context['stats_form']['date_from'].value(), '2026-10-01')
+        self.assertEqual(response.context['stats_form']['date_to'].value(), '2026-10-31')
+        self.assertContains(response, '2026.10.01 – 2026.10.31 · 전체 분류')
+        self.assertContains(response, 'for="id_stats-date_from"')
+        self.assertContains(response, 'aria-describedby="id_stats-date_from_errors"')
+
+    def test_calendar_month_defaults_handle_leap_year_february_and_year_rollover(self):
+        for today, start, end in [(date(2028, 2, 22), '2028-02-01', '2028-02-29'),
+                                  (date(2027, 2, 22), '2027-02-01', '2027-02-28'),
+                                  (date(2026, 12, 31), '2026-12-01', '2026-12-31'),
+                                  (date(2027, 1, 1), '2027-01-01', '2027-01-31')]:
+            with self.subTest(today=today):
+                self.clock.return_value = today
+                response, _ = self.statistics()
+                self.assertEqual(response.context['stats_form']['date_from'].value(), start)
+                self.assertEqual(response.context['stats_form']['date_to'].value(), end)
+
+    def test_custom_period_and_selected_category_are_preserved_by_both_forms(self):
+        from urllib.parse import parse_qs
+        params = {'q': '보고', 'categories': [self.category.pk, self.other.pk], 'statuses': [Task.Status.DONE],
+                  'ordering': 'date_asc', 'page': '2', 'stats-date_from': '2026-09-01',
+                  'stats-date_to': '2026-09-30', 'stats-category': self.category.pk}
+        response, _ = self.statistics(params)
+        context = response.context
+        self.assertEqual(dict(context['stats_hidden_items']), {'stats-date_from': '2026-09-01',
+                         'stats-date_to': '2026-09-30', 'stats-category': str(self.category.pk)})
+        self.assertEqual([v for n, v in context['archive_hidden_items'] if n == 'categories'],
+                         [str(self.category.pk), str(self.other.pk)])
+        self.assertIn(('q', '보고'), context['archive_hidden_items'])
+        self.assertIn(('page', '2'), context['archive_hidden_items'])
+        self.assertEqual(parse_qs(context['archive_reset_query'].urlencode()), {
+            'stats-date_from': ['2026-09-01'], 'stats-date_to': ['2026-09-30'], 'stats-category': [str(self.category.pk)]})
+        month_query = context['stats_month_query']
+        self.assertNotIn('stats-date_from', month_query)
+        self.assertNotIn('stats-date_to', month_query)
+        reset_response, _ = self.statistics(month_query)
+        self.assertEqual(reset_response.context['stats_form']['date_from'].value(), '2026-10-01')
+        self.assertEqual(reset_response.context['stats_category_label'], self.category.name)
+
+    def test_explicit_custom_period_overrides_month_and_invalid_archive_does_not_block_it(self):
+        self.task(Task.Status.NOT_DONE, task_date=date(2026, 9, 30))
+        self.task(Task.Status.DONE)
+        response, statistics = self.statistics({'date_from': 'invalid', 'stats-date_from': '2026-09-01',
+                                                'stats-date_to': '2026-09-30', 'stats-category': self.category.pk})
+        self.assertTrue(response.context['form'].errors)
+        self.assertEqual(statistics['total'], 1)
+        self.assertEqual(self.by_status(statistics)[Task.Status.NOT_DONE], (1, '100.0'))
+        self.assertEqual(response.context['stats_period_label'], '2026.09.01 – 2026.09.30')
 
     def test_rounding_is_explicit_and_status_changes_replace_old_counts(self):
         task = self.task(Task.Status.PENDING)

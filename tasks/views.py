@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from calendar import monthrange
 from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 from pathlib import PurePath
@@ -24,7 +25,7 @@ from django.urls import reverse
 from urllib.parse import quote, urlencode, urlparse
 from .exports import csv_for_records, csv_for_tasks, export_filename, workbook_for_records, workbook_for_tasks
 from .backups import BackupRestoreError, BackupValidationError, MAX_ARCHIVE_SIZE, create_full_backup, restore_database_archive
-from .forms import CategoryForm, DailyRecordForm, RecordFilterForm, TaskFilterForm, TaskForm
+from .forms import CategoryForm, DailyRecordForm, RecordFilterForm, TaskFilterForm, TaskForm, TaskStatisticsForm
 from .models import BackupLog, BackupReminder, Category, DailyPhoto, DailyRecord, Holiday, Task, TaskStatusHistory
 from .photo_storage import PhotoStorageError, configured as photo_storage_configured, delete_private_photo, download_private_photo, upload_private_photo
 from .photo_privacy import PhotoPrivacyError, strip_photo_metadata
@@ -655,15 +656,53 @@ def task_status_statistics(tasks):
     return {"total": total, "items": items}
 
 
+def task_statistics_context(request, archive_form):
+    today = timezone.localdate()
+    data = request.GET.copy()
+    data.setdefault("stats-date_from", today.replace(day=1).isoformat())
+    data.setdefault("stats-date_to", today.replace(day=monthrange(today.year, today.month)[1]).isoformat())
+    form = TaskStatisticsForm(data, prefix="stats")
+    statistics = None
+    period_label = category_label = ""
+    if form.is_valid():
+        start, end, category = (form.cleaned_data[name] for name in ("date_from", "date_to", "category"))
+        tasks = Task.objects.filter(deleted_at__isnull=True)
+        if start:
+            tasks = tasks.filter(task_date__gte=start)
+        if end:
+            tasks = tasks.filter(task_date__lte=end)
+        if category:
+            tasks = tasks.filter(category=category)
+        statistics = task_status_statistics(tasks)
+        period_label = (f"{start:%Y.%m.%d} – {end:%Y.%m.%d}" if start and end else
+                        f"{start:%Y.%m.%d} 이후" if start else f"{end:%Y.%m.%d}까지" if end else "전체 기간")
+        category_label = str(category) if category else "전체 분류"
+    names = [form.add_prefix(name) for name in form.fields]
+    month_query = request.GET.copy()
+    for name in (form.add_prefix("date_from"), form.add_prefix("date_to")):
+        month_query.pop(name, None)
+    statistics_query = request.GET.copy()
+    for name in list(statistics_query):
+        if name not in names:
+            statistics_query.pop(name)
+    return {
+        "stats_form": form, "task_statistics": statistics,
+        "stats_period_label": period_label, "stats_category_label": category_label,
+        "stats_month_query": month_query, "archive_reset_query": statistics_query,
+        "stats_hidden_items": [(name, value) for name in names for value in request.GET.getlist(name)],
+        "archive_hidden_items": [(name, value) for name in (*archive_form.fields, "page")
+                                 for value in request.GET.getlist(name)],
+    }
+
+
 @never_cache
 @login_required
 def task_list(request):
     form = TaskFilterForm(request.GET or None)
     tasks = filtered_tasks(form)
-    statistics = None if form.is_bound and not form.is_valid() else task_status_statistics(tasks)
     page_obj = Paginator(tasks, 50).get_page(request.GET.get("page"))
     return render(request, "task_list.html", {"form": form, "page_obj": page_obj,
-                  "query_string": request.GET.copy(), "task_statistics": statistics})
+                  "query_string": request.GET.copy(), **task_statistics_context(request, form)})
 
 
 def filtered_records(form):
