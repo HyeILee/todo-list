@@ -1,4 +1,5 @@
 from datetime import date, timedelta
+from decimal import Decimal, ROUND_HALF_UP
 import hashlib
 from pathlib import PurePath
 import sqlite3
@@ -11,7 +12,7 @@ from django.db.utils import DatabaseError
 from django.core.exceptions import ImproperlyConfigured
 from django.core import signing
 from django.core.paginator import Paginator
-from django.db.models import Case, F, IntegerField, Q, Value, When
+from django.db.models import Case, Count, F, IntegerField, Q, Value, When
 from django.http import Http404, HttpResponse, HttpResponseBadRequest, JsonResponse
 from django.shortcuts import get_object_or_404, redirect, render
 from django.template.loader import render_to_string
@@ -625,13 +626,40 @@ def filtered_tasks(form):
     return tasks.order_by(F("task_date").desc(nulls_last=True), "category__sort_order", "sort_order")
 
 
+def task_status_statistics(tasks):
+    # Aggregate before pagination and clear ordering to avoid extra GROUP BY columns.
+    counts = dict(tasks.order_by().values("status").annotate(count=Count("pk"))
+                  .values_list("status", "count"))
+    total = sum(counts.values())
+    labels = {
+        Task.Status.PENDING: "미정",
+        Task.Status.NOT_DONE: "하지 못함",
+        Task.Status.PARTIAL: "일부 완료",
+        Task.Status.DONE: "완료",
+    }
+    items = []
+    for status in TASK_STATUS_ORDER:
+        count = counts.get(status, 0)
+        percentage = (Decimal(count * 100) / total if total else Decimal(0))
+        items.append({
+            "status": status,
+            "key": status.lower(),
+            "label": labels[status],
+            "count": count,
+            "percentage": format(percentage.quantize(Decimal("0.1"), rounding=ROUND_HALF_UP), ".1f"),
+        })
+    return {"total": total, "items": items}
+
+
 @never_cache
 @login_required
 def task_list(request):
     form = TaskFilterForm(request.GET or None)
     tasks = filtered_tasks(form)
+    statistics = None if form.is_bound and not form.is_valid() else task_status_statistics(tasks)
     page_obj = Paginator(tasks, 50).get_page(request.GET.get("page"))
-    return render(request, "task_list.html", {"form": form, "page_obj": page_obj, "query_string": request.GET.copy()})
+    return render(request, "task_list.html", {"form": form, "page_obj": page_obj,
+                  "query_string": request.GET.copy(), "task_statistics": statistics})
 
 
 def filtered_records(form):

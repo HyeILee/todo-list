@@ -821,3 +821,146 @@ class WeeklyOverviewTests(TestCase):
         inbox = self.task('미지정', task_date=None)
         response = self.client.post(reverse('task_status', args=[inbox.pk]), {'status': Task.Status.DONE}, HTTP_HX_REQUEST='true').json()
         self.assertNotIn('week_html', response)
+
+
+class TaskStatusStatisticsTests(TestCase):
+    def setUp(self):
+        backup = mock.patch('tasks.backups.ensure_daily_backup_before_change', return_value=True)
+        backup.start()
+        self.addCleanup(backup.stop)
+        self.client.force_login(get_user_model().objects.create_user(username='statistics-owner'))
+        self.category = Category.objects.create(name='나의 과제')
+        self.other = Category.objects.create(name='생활')
+        self.day = date(2026, 10, 22)
+
+    def task(self, status, **changes):
+        values = dict(title='같은 제목의 반복 일정', category=self.category,
+                      task_date=self.day, status=status)
+        values.update(changes)
+        return Task.objects.create(**values)
+
+    def statistics(self, params=None):
+        response = self.client.get(reverse('task_list'), params or {})
+        self.assertEqual(response.status_code, 200)
+        return response, response.context['task_statistics']
+
+    def by_status(self, statistics):
+        return {item['status']: (item['count'], item['percentage']) for item in statistics['items']}
+
+    def test_all_categories_count_each_current_task_once_and_exclude_deleted(self):
+        from django.utils import timezone
+        from .models import TaskStatusHistory
+        from .views import TASK_STATUS_ORDER
+        for rank, status in enumerate(TASK_STATUS_ORDER):
+            for index in range(rank + 1):
+                task = self.task(status, category=self.category if index % 2 else self.other)
+                TaskStatusHistory.objects.create(task=task, from_status=None, to_status=status)
+                TaskStatusHistory.objects.create(task=task, from_status=status, to_status=status)
+        self.task(Task.Status.DONE, deleted_at=timezone.now())
+        response, statistics = self.statistics()
+        self.assertEqual(statistics['total'], 10)
+        self.assertEqual([item['status'] for item in statistics['items']], list(TASK_STATUS_ORDER))
+        self.assertEqual(self.by_status(statistics), {
+            Task.Status.PENDING: (1, '10.0'), Task.Status.NOT_DONE: (2, '20.0'),
+            Task.Status.PARTIAL: (3, '30.0'), Task.Status.DONE: (4, '40.0'),
+        })
+        self.assertEqual(response.context['page_obj'].paginator.count, statistics['total'])
+        self.assertContains(response, '퀘스트 진행 현황')
+        self.assertContains(response, 'task-statistics.css?v=1')
+
+    def test_single_or_multiple_categories_and_inclusive_dates_change_the_scope(self):
+        self.task(Task.Status.DONE, task_date=date(2026, 10, 1))
+        self.task(Task.Status.DONE, task_date=date(2026, 10, 31))
+        self.task(Task.Status.NOT_DONE, task_date=date(2026, 10, 31))
+        self.task(Task.Status.PARTIAL, task_date=date(2026, 9, 30))
+        self.task(Task.Status.PENDING, category=self.other)
+        params = {'categories': [self.category.pk], 'date_from': '2026-10-01', 'date_to': '2026-10-31'}
+        _, statistics = self.statistics(params)
+        self.assertEqual(statistics['total'], 3)
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (2, '66.7'))
+        self.assertEqual(self.by_status(statistics)[Task.Status.NOT_DONE], (1, '33.3'))
+        params['categories'].append(self.other.pk)
+        _, statistics = self.statistics(params)
+        self.assertEqual(statistics['total'], 4)
+        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '25.0'))
+
+    def test_search_important_and_status_filters_match_the_result_list(self):
+        self.task(Task.Status.DONE, details='집계할 메모', is_important=True)
+        self.task(Task.Status.PENDING, title='집계할 제목', is_important=True)
+        self.task(Task.Status.NOT_DONE, details='집계할 메모')
+        self.task(Task.Status.PARTIAL, is_important=True)
+        params = {'q': '집계할', 'important': 'on'}
+        response, statistics = self.statistics(params)
+        self.assertEqual(statistics['total'], 2)
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (1, '50.0'))
+        self.assertEqual(response.context['page_obj'].paginator.count, 2)
+        params['statuses'] = [Task.Status.PENDING]
+        _, statistics = self.statistics(params)
+        self.assertEqual(statistics['total'], 1)
+        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '100.0'))
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (0, '0.0'))
+
+    def test_date_modes_distinguish_undecided_status_from_undated_tasks(self):
+        self.task(Task.Status.DONE)
+        self.task(Task.Status.PENDING, task_date=None)
+        for params, total, pending in [({}, 1, 0), ({'date_mode': 'all'}, 2, 1),
+                                       ({'date_mode': 'inbox'}, 1, 1),
+                                       ({'date_mode': 'all', 'date_from': '2026-10-01'}, 1, 0)]:
+            with self.subTest(params=params):
+                _, statistics = self.statistics(params)
+                self.assertEqual(statistics['total'], total)
+                self.assertEqual(self.by_status(statistics)[Task.Status.PENDING][0], pending)
+
+    def test_all_pages_and_sort_orders_use_the_same_denominator(self):
+        Task.objects.bulk_create([Task(title=f'완료 {index}', task_date=self.day,
+                                      category=self.category, status=Task.Status.DONE) for index in range(60)])
+        self.task(Task.Status.PENDING)
+        first_response, first = self.statistics()
+        second_response, second = self.statistics({'page': '2', 'ordering': 'date_asc'})
+        self.assertEqual(len(first_response.context['page_obj']), 50)
+        self.assertEqual(len(second_response.context['page_obj']), 11)
+        self.assertEqual(first, second)
+        self.assertEqual(first['total'], 61)
+        self.assertEqual(self.by_status(first)[Task.Status.DONE], (60, '98.4'))
+        self.assertEqual(self.by_status(first)[Task.Status.PENDING], (1, '1.6'))
+
+    def test_empty_results_display_four_zeros_without_division_errors(self):
+        for params in ({}, {'q': '일치하지 않음'}):
+            response, statistics = self.statistics(params)
+            self.assertEqual(statistics['total'], 0)
+            self.assertTrue(all(item['count'] == 0 and item['percentage'] == '0.0' for item in statistics['items']))
+            self.assertContains(response, '조건에 맞는 일정이 없어요.')
+
+    def test_invalid_filters_do_not_present_unfiltered_numbers_as_statistics(self):
+        self.task(Task.Status.DONE)
+        for params in ({'date_from': 'invalid'}, {'date_from': '2026-10-31', 'date_to': '2026-10-01'},
+                       {'categories': ['not-a-category']}, {'statuses': ['INVALID']}):
+            with self.subTest(params=params):
+                response, statistics = self.statistics(params)
+                self.assertIsNone(statistics)
+                self.assertContains(response, '검색 조건을 수정한 뒤 검색하면 진행 현황을 볼 수 있어요.')
+                self.assertNotContains(response, 'aria-label="상태별 건수와 비율"')
+
+    def test_rounding_is_explicit_and_status_changes_replace_old_counts(self):
+        task = self.task(Task.Status.PENDING)
+        self.task(Task.Status.NOT_DONE)
+        self.task(Task.Status.DONE)
+        response, statistics = self.statistics()
+        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (1, '33.3'))
+        self.assertContains(response, '반올림해 합계가 100%와 조금 다를 수 있어요.')
+        task.status = Task.Status.DONE
+        task.save()
+        _, statistics = self.statistics()
+        self.assertEqual(statistics['total'], 3)
+        self.assertEqual(self.by_status(statistics)[Task.Status.PENDING], (0, '0.0'))
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (2, '66.7'))
+
+    def test_aggregation_is_one_query_even_with_many_categories_and_ordering(self):
+        from .views import task_status_statistics, tasks_in_status_order
+        Task.objects.bulk_create([Task(title=f'일정 {index}', task_date=self.day,
+                                      category=self.category if index % 2 else self.other,
+                                      status=Task.Status.DONE) for index in range(100)])
+        with self.assertNumQueries(1):
+            statistics = task_status_statistics(tasks_in_status_order(Task.objects.select_related('category')))
+        self.assertEqual(statistics['total'], 100)
+        self.assertEqual(self.by_status(statistics)[Task.Status.DONE], (100, '100.0'))
