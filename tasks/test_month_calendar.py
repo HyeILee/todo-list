@@ -58,3 +58,57 @@ class MonthCalendarTests(TestCase):
         response = self.client.get(reverse("month_calendar"))
         self.assertEqual(response.status_code, 302)
         self.assertIn("login", response.url)
+
+    def test_month_summary_counts_all_tasks_in_the_month_including_hidden_rows(self):
+        expected = [
+            (Task.Status.PENDING, 5, date(2026, 11, 1)),
+            (Task.Status.NOT_DONE, 3, date(2026, 11, 30)),
+            (Task.Status.PARTIAL, 2, date(2026, 11, 16)),
+            (Task.Status.DONE, 4, date(2026, 11, 11)),
+        ]
+        for status, count, day in expected:
+            for index in range(count):
+                Task.objects.create(category=self.category, task_date=day,
+                    title=f"월간 샘플 {status} {index}", status=status)
+        for day in (date(2026, 10, 31), date(2026, 12, 1), None):
+            Task.objects.create(category=self.category, task_date=day, title="집계 제외 샘플")
+        Task.objects.create(category=self.category, task_date=date(2026, 11, 15),
+            title="휴지통 샘플", status=Task.Status.DONE, deleted_at=timezone.now())
+
+        response = self.client.get(reverse("month_calendar"), {"date": "2026-11-11"})
+        self.assertEqual(response.context["month_task_count"], 14)
+        self.assertEqual(response.context["month_status_summary"], [
+            {"value": status, "label": status.label, "count": count}
+            for status, count, _ in expected
+        ])
+        cell = next(day for day in response.context["calendar_days"] if day["date"] == date(2026, 11, 1))
+        self.assertEqual(len(cell["tasks"]), 3)
+        self.assertEqual(cell["count"], 5)
+        self.assertContains(response, "2026년 11월 · 전체 14개")
+        self.assertContains(response, 'aria-label="2026년 11월 상태별 할 일 수"')
+        for status, count, _ in expected:
+            self.assertContains(response, f'aria-label="{status.label} {count}개"')
+
+    def test_month_picker_summary_includes_leap_day_and_excludes_neighboring_months(self):
+        for day, status in [
+            (date(2028, 1, 31), Task.Status.PENDING),
+            (date(2028, 2, 1), Task.Status.PENDING),
+            (date(2028, 2, 29), Task.Status.DONE),
+            (date(2028, 3, 1), Task.Status.NOT_DONE),
+        ]:
+            Task.objects.create(category=self.category, task_date=day, title="기간 샘플", status=status)
+        response = self.client.get(reverse("month_calendar"), {"date": "2026-11-11", "month": "2028-02"})
+        self.assertEqual(response.context["month_first"], date(2028, 2, 1))
+        self.assertEqual(response.context["month_task_count"], 2)
+        self.assertEqual([item["count"] for item in response.context["month_status_summary"]], [1, 0, 0, 1])
+        self.assertContains(response, "2028년 2월 · 전체 2개")
+        self.assertContains(response, 'aria-label="X 0개"')
+        self.assertContains(response, 'aria-label="△ 0개"')
+
+    def test_empty_month_still_displays_each_status_with_zero(self):
+        response = self.client.get(reverse("month_calendar"), {"month": "2027-01"})
+        self.assertEqual(response.context["month_task_count"], 0)
+        self.assertEqual([item["count"] for item in response.context["month_status_summary"]], [0, 0, 0, 0])
+        self.assertContains(response, "2027년 1월 · 전체 0개")
+        for label in ("미정", "X", "△", "O"):
+            self.assertContains(response, f'aria-label="{label} 0개"')

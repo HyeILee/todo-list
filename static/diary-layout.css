@@ -37,6 +37,11 @@ h1,h2,.note-field>.field-heading>label{font-family:DayLogSerif,serif;font-weight
 .daily-layout .category li>.drag-handle{display:block;grid-area:grip}
 .daily-layout .status-form::after{left:auto;margin-top:0}
 
+/* Links and native buttons share one action row, without form baseline spacing. */
+.daily-layout .task-row-actions,.daily-layout .task-reorder-actions{align-items:center;align-self:center;min-height:34px}
+.daily-layout .task-row-actions>form,.daily-layout .task-reorder-actions>.task-move{display:flex;align-items:center;margin:0}
+.daily-layout .task-row-actions .row-action,.daily-layout .task-reorder-actions .row-action{display:inline-flex;align-items:center;justify-content:center;box-sizing:border-box;height:34px;min-height:34px;margin:0;padding-block:0;font:400 12px/1 DayLogSans,sans-serif;vertical-align:middle}
+
 /* One diary hierarchy from the persistent bookplate to the weekly and daily pages. */
 html{scroll-padding-top:106px}
 .topbar{position:sticky;top:0;z-index:40;isolation:isolate;min-height:88px;padding-block:15px;background:#fffdfcf5;border-bottom:1px solid #d1adb9;box-shadow:0 4px 18px #6946540a;backdrop-filter:blur(12px)}

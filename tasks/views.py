@@ -134,8 +134,11 @@ def month_calendar(request):
         "category__sort_order", "category__name", "sort_order", "created_at",
     )
     by_day = {day: [] for day in dates}
+    month_counts = {status: 0 for status in TASK_STATUS_ORDER}
     for task in tasks:
         by_day[task.task_date].append(task)
+        if month_first <= task.task_date <= month_last:
+            month_counts[task.status] += 1
     holidays = dict(Holiday.objects.filter(holiday_date__range=(grid_start, grid_end)).values_list("holiday_date", "name"))
     today = timezone.localdate()
     calendar_days = []
@@ -153,6 +156,11 @@ def month_calendar(request):
     next_month = month_last + timedelta(days=1)
     return render(request, "month_calendar.html", {
         "calendar_days": calendar_days, "month_first": month_first,
+        "month_task_count": sum(month_counts.values()),
+        "month_status_summary": [
+            {"value": status, "label": Task.Status(status).label, "count": month_counts[status]}
+            for status in TASK_STATUS_ORDER
+        ],
         "previous_month": previous_month, "next_month": next_month,
         "selected_date": selected, "today": today,
     })
