@@ -83,6 +83,7 @@ jobs:
           tasks.test_security_reminders
           tasks.test_photo_privacy
           tasks.test_daylog_features
+          tasks.test_month_calendar
           --verbosity 2
       - name: Verify browser backup scripts
         run: node --test tests/*.test.js

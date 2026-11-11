@@ -11,7 +11,7 @@
 	<link rel="stylesheet" href="{% static 'notes.css' %}?v=4">
 	{% block extra_styles %}{% endblock %}
 	<link rel="stylesheet" href="{% static 'journal-theme.css' %}?v=2">
-	<link rel="stylesheet" href="{% static 'diary-layout.css' %}?v=2">
+	<link rel="stylesheet" href="{% static 'diary-layout.css' %}?v=3">
 </head>
 <body class="{% block body_class %}{% endblock %}" data-draft-owner="{{ request.user.pk|default:'anonymous' }}">
 	<header class="topbar"><a class="brand" href="{% url 'home' %}"><span class="brand-mark" aria-hidden="true">T</span><span class="brand-copy"><span class="brand-name">To-do List</span><span class="brand-caption">기억하고 싶은 하루</span></span></a>{% if request.user.is_authenticated %}<nav class="main-nav" aria-label="주 메뉴"><a href="{% url 'home' %}">한 주와 오늘</a><a href="{% url 'task_list' %}">전체 퀘스트</a><a href="{% url 'record_list' %}">일기장</a><a href="{% url 'photo_album' %}">사진첩</a><a href="{% url 'settings_home' %}">설정</a></nav><div class="account"><span class="user-name">{{ request.user.get_username }}</span><form method="post" action="{% url 'logout' %}" data-clear-local-drafts>{% csrf_token %}<button class="text-button">로그아웃</button></form></div>{% endif %}</header>

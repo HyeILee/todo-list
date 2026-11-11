@@ -2,7 +2,7 @@
 {% load static %}
 {% block title %}한 달 달력 · To-do List{% endblock %}
 {% block body_class %}month-calendar-page{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{% static 'month-calendar.css' %}?v=1">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'month-calendar.css' %}?v=2">{% endblock %}
 {% block content %}
 <section class="month-calendar" aria-labelledby="month-calendar-title">
   <header class="month-calendar-header">
@@ -15,11 +15,11 @@
       <a class="icon" href="{% url 'month_calendar' %}?month={{ next_month|date:'Y-m' }}" aria-label="다음 달">→</a>
     </form>
   </header>
-  <div class="month-calendar-key" aria-label="할 일 상태별 색상">
-    <span class="status-pending">{% include 'week_status_icon.html' with status='PENDING' label='' %} 미정</span>
-    <span class="status-not_done">{% include 'week_status_icon.html' with status='NOT_DONE' label='' %} X</span>
-    <span class="status-partial">{% include 'week_status_icon.html' with status='PARTIAL' label='' %} △</span>
-    <span class="status-done">{% include 'week_status_icon.html' with status='DONE' label='' %} O</span>
+  <div class="month-calendar-summary">
+    <p class="month-calendar-total">{{ month_first|date:'Y년 n월' }} · 전체 {{ month_task_count }}개</p>
+    <div class="month-calendar-key" aria-label="{{ month_first|date:'Y년 n월' }} 상태별 할 일 수">
+      {% for summary in month_status_summary %}<span class="status-{{ summary.value|lower }}" role="img" aria-label="{{ summary.label }} {{ summary.count }}개" title="{{ summary.label }} {{ summary.count }}개">{% include 'week_status_icon.html' with status=summary.value label='' %}<span>{{ summary.count }}</span></span>{% endfor %}
+    </div>
   </div>
   <div class="month-calendar-scroll" role="region" aria-label="{{ month_first|date:'Y년 n월' }} 달력" tabindex="0">
     <div class="month-calendar-grid">

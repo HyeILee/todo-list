@@ -5,12 +5,14 @@
 .month-calendar-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
 .month-calendar-controls label{font-size:12px;color:var(--muted)}
 .month-calendar-controls input{min-height:42px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
-.month-calendar-key{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.month-calendar-summary{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:12px;margin-bottom:14px}
+.month-calendar-total{margin:0;color:var(--muted);font-size:12px}
+.month-calendar-key{display:flex;flex-wrap:wrap;gap:8px;margin-left:auto}
 .month-calendar-key>span,.month-task{--status-accent:#5084b4;--status-tint:#eaf2fa;--status-ink:#285f8c}
 .month-calendar-key .status-not_done,.month-task.status-not_done{--status-accent:#cc796b;--status-tint:#faece8;--status-ink:#94483b}
 .month-calendar-key .status-partial,.month-task.status-partial{--status-accent:#c1913d;--status-tint:#faf1dd;--status-ink:#856020}
 .month-calendar-key .status-done,.month-task.status-done{--status-accent:#61966e;--status-tint:#eaf4eb;--status-ink:#356243}
-.month-calendar-key>span{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;background:var(--status-tint);color:var(--status-ink);font-size:11px}
+.month-calendar-key>span{display:inline-flex;align-items:center;gap:6px;padding:6px 9px;border-radius:6px;background:var(--status-tint);color:var(--status-ink);font-size:13px;font-weight:700;font-variant-numeric:tabular-nums}
 .month-calendar-key .week-status-icon{width:14px;height:14px}
 .month-calendar-scroll{overflow-x:auto;scrollbar-color:#d1bac4 transparent}
 .month-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;min-width:770px}
