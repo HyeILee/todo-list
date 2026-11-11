@@ -29,7 +29,7 @@ from webauthn.helpers.structs import (AuthenticatorSelectionCriteria,
 
 from .access import is_owner
 from .forms import OwnerAuthenticationForm
-from tasks.models import LoginSecurity, Passkey, PasskeyChallenge, RecoveryCode, TrustedBrowser
+from tasks.models import GoogleAccount, LoginSecurity, Passkey, PasskeyChallenge, RecoveryCode, TrustedBrowser
 
 COOKIE = "dugyeon_trusted_browser"
 PENDING = "dugyeon_pending_login"
@@ -153,32 +153,45 @@ def pending_user(request):
         profile = LoginSecurity.objects.get(user=user, enabled=True)
         if (not is_owner(user) or not 0 <= timezone.now().timestamp() - pending["at"] <= 300
             or pending["generation"] != str(profile.generation)
-            or not constant_time_compare(pending["auth_hash"], user.get_session_auth_hash())):
+            or not constant_time_compare(pending["auth_hash"], user.get_session_auth_hash())
+            or (pending.get("google_account") and not GoogleAccount.objects.filter(pk=pending["google_account"], user=user).exists())):
             raise ValueError
         return user, profile
     except (KeyError, TypeError, ValueError, get_user_model().DoesNotExist, LoginSecurity.DoesNotExist):
         request.session.pop(PENDING, None)
-        raise SecurityFailure("로그인 시간이 지났습니다. 비밀번호부터 다시 입력해 주세요.")
+        raise SecurityFailure("로그인 시간이 지났습니다. 로그인을 다시 시작해 주세요.")
+
+
+def begin_owner_login(request, user, destination, *, google_account=None):
+    profile = LoginSecurity.objects.filter(user=user, enabled=True).first()
+    request.session.pop("dugyeon_google_account", None)
+    if profile and not trusted(request, user, profile):
+        request.session.cycle_key()
+        request.session[PENDING] = {"user": user.pk, "at": timezone.now().timestamp(),
+            "auth_hash": user.get_session_auth_hash(), "generation": str(profile.generation),
+            "next": destination, "google_account": google_account}
+        return redirect("passkey_challenge")
+    request.session.pop(PENDING, None)
+    login(request, user, backend=BACKEND)
+    if profile:
+        mark_verified(request, user, profile)
+    if google_account:
+        request.session["dugyeon_google_account"] = google_account
+    return redirect(destination)
 
 
 class ConditionalLoginView(LoginView):
     template_name = "login.html"
     authentication_form = OwnerAuthenticationForm
 
+    def get_context_data(self, **kwargs):
+        from .google_login import configured
+        context = super().get_context_data(**kwargs)
+        context["google_login_available"] = configured() and GoogleAccount.objects.filter(user__is_active=True).exists()
+        return context
+
     def form_valid(self, form):
-        user = form.get_user()
-        profile = LoginSecurity.objects.filter(user=user, enabled=True).first()
-        if profile and not trusted(self.request, user, profile):
-            self.request.session.cycle_key()
-            self.request.session[PENDING] = {"user": user.pk, "at": timezone.now().timestamp(),
-                "auth_hash": user.get_session_auth_hash(), "generation": str(profile.generation),
-                "next": self.get_success_url()}
-            return redirect("passkey_challenge")
-        self.request.session.pop(PENDING, None)
-        response = super().form_valid(form)
-        if profile:
-            mark_verified(self.request, user, profile)
-        return response
+        return begin_owner_login(self.request, form.get_user(), self.get_success_url())
 
 
 class VerifiedLoginMiddleware:
@@ -188,6 +201,10 @@ class VerifiedLoginMiddleware:
     def __call__(self, request):
         if request.user.is_authenticated and request.path != reverse("logout"):
             profile = LoginSecurity.objects.filter(user=request.user, enabled=True).first()
+            google_account = request.session.get("dugyeon_google_account")
+            if google_account and (not profile or not GoogleAccount.objects.filter(pk=google_account, user=request.user).exists()):
+                logout(request)
+                return redirect("login")
             if profile and (request.session.get("dugyeon_mfa_generation") != str(profile.generation)
                 or not constant_time_compare(request.session.get("dugyeon_mfa_auth_hash", ""), request.user.get_session_auth_hash())):
                 logout(request)
@@ -198,6 +215,7 @@ class VerifiedLoginMiddleware:
 @login_required
 @never_cache
 def security_page(request):
+    from .google_login import configured
     profile, _ = LoginSecurity.objects.get_or_create(user=request.user)
     rp_ok = True
     try:
@@ -207,7 +225,8 @@ def security_page(request):
     return render(request, "passkey_settings.html", {"security": profile,
         "passkeys": Passkey.objects.filter(user=request.user, revoked_at__isnull=True),
         "recovery_remaining": RecoveryCode.objects.filter(user=request.user, generation=profile.generation, used_at__isnull=True).count(),
-        "passkey_origin": settings.PASSKEY_ORIGIN, "passkey_rp_ok": rp_ok})
+        "passkey_origin": settings.PASSKEY_ORIGIN, "passkey_rp_ok": rp_ok,
+        "google_configured": configured(), "google_account": GoogleAccount.objects.filter(user=request.user).first()})
 
 
 @never_cache
@@ -269,9 +288,12 @@ def authentication_options(request):
 
 def finish_login(request, user, profile, data):
     destination = request.session.get(PENDING, {}).get("next", reverse("home"))
+    google_account = request.session.get(PENDING, {}).get("google_account")
     request.session.pop(PENDING, None)
     login(request, user, backend=BACKEND)
     mark_verified(request, user, profile, recent=True)
+    if google_account:
+        request.session["dugyeon_google_account"] = google_account
     response = JsonResponse({"ok": True, "next": destination})
     if data.get("remember") is True:
         remember(request, response, user, profile)
@@ -415,6 +437,8 @@ def security_action(request):
                 return JsonResponse({"ok": True, "codes": recovery_codes(request.user, profile)})
             if action not in {"forget", "disable"}:
                 raise SecurityFailure("요청을 확인해 주세요.")
+            if action == "disable" and GoogleAccount.objects.filter(user=request.user).exists():
+                raise SecurityFailure("추가 인증을 끄려면 먼저 Google 계정 연결을 해제해 주세요.")
             TrustedBrowser.objects.filter(user=request.user, revoked_at__isnull=True).update(revoked_at=timezone.now())
             if action == "disable":
                 profile.enabled = False

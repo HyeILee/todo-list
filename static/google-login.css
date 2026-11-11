@@ -1,0 +1,8 @@
+.login-panel{display:flex;flex-direction:column;justify-content:center;min-width:0}
+.has-google .login-form{padding-bottom:0}
+.google-login-form{padding:0 38px 38px;margin:0}
+.login-divider{display:flex;align-items:center;gap:12px;margin:20px 0;color:var(--muted,#74656d);font-size:12px}
+.login-divider::before,.login-divider::after{content:"";height:1px;flex:1;background:var(--line,#dfcdd0)}
+.google-button{background:#fff;color:#352d32;border:1px solid #b5a8ae;font-weight:600}
+.google-login-form .hint{margin:12px 0 0;line-height:1.6;text-align:center}
+@media(max-width:760px){.google-login-form{padding:0 24px 26px}}

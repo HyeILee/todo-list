@@ -24,3 +24,12 @@ pyOpenSSL==26.4.0
 pyasn1==0.6.4
 pyasn1-modules==0.4.2
 pycparser==3.0
+
+# Google OIDC: protocol validation stays in Authlib; no provider tokens are stored.
+Authlib==1.9.5
+joserfc==1.8.0
+requests==2.34.2
+charset-normalizer==3.5.2
+idna==3.20
+urllib3==2.8.0
+certifi==2026.10.23

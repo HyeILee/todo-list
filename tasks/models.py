@@ -181,6 +181,29 @@ class LoginSecurity(models.Model):
     blocked_until = models.DateTimeField(null=True, blank=True)
 
 
+class GoogleAccount(models.Model):
+    """An explicitly linked identity; never a separate copy of the owner's records."""
+    user = models.OneToOneField(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
+    subject = models.CharField(max_length=255, unique=True)
+    email = models.EmailField(max_length=254)
+    created_at = models.DateTimeField(auto_now_add=True)
+
+
+class GoogleLoginAttempt(models.Model):
+    """Short-lived, session-bound, single-use OAuth intent. No provider tokens."""
+    state_hash = models.CharField(max_length=64, unique=True)
+    session_hash = models.CharField(max_length=64)
+    network_hash = models.CharField(max_length=64, db_index=True)
+    purpose = models.CharField(max_length=5, choices=[("login", "로그인"), ("link", "연결")])
+    user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE, null=True)
+    auth_hash = models.CharField(max_length=64, blank=True)
+    generation = models.UUIDField(null=True)
+    next_path = models.CharField(max_length=2048, default="/")
+    created_at = models.DateTimeField(auto_now_add=True)
+    expires_at = models.DateTimeField(db_index=True)
+    consumed_at = models.DateTimeField(null=True)
+
+
 class Passkey(models.Model):
     user = models.ForeignKey(settings.AUTH_USER_MODEL, on_delete=models.CASCADE)
     credential_id = models.CharField(max_length=1024, unique=True)

@@ -267,6 +267,8 @@ def validate_backup_archive(archive_bytes):
     compatible_schemas = {current_schema}
     if current_schema == "0007_backupreminder":
         compatible_schemas.add("0006_dailyphoto_category")
+    if current_schema == "0010_google_owner_login":
+        compatible_schemas.add("0009_conditional_passkeys")
     if manifest.get("db_schema_version") not in compatible_schemas:
         raise BackupValidationError("현재 앱과 호환되지 않는 DB 스키마 버전입니다.")
     try:
@@ -317,7 +319,7 @@ def restore_database_archive(archive_bytes):
         temporary_file.write(database_bytes)
         staged_database_path = Path(temporary_file.name)
     try:
-        # The only accepted older schema differs by the additive reminder table.
+        # Accepted older schemas differ only by additive reminder/Google tables.
         # Upgrade the staged copy before swapping; a failed upgrade leaves the live DB intact.
         if manifest["db_schema_version"] != _latest_task_schema(database):
             from django.db.backends.sqlite3.base import DatabaseWrapper
