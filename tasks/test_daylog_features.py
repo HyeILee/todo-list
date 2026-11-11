@@ -705,7 +705,7 @@ class WeeklyOverviewTests(TestCase):
         context = weekly_context(self.day)
         return context, render_to_string('weekly_overview.html', context)
 
-    def test_all_statuses_and_all_tasks_are_included_only_in_this_week(self):
+    def test_preview_stops_at_seven_while_totals_and_daily_list_keep_all_tasks(self):
         from django.utils import timezone
         pending = [self.task(f'남은 일 {i}', sort_order=i) for i in range(9)]
         for status in (Task.Status.DONE, Task.Status.NOT_DONE, Task.Status.PARTIAL):
@@ -718,16 +718,22 @@ class WeeklyOverviewTests(TestCase):
         day = context['week'][2]
         self.assertEqual(context['week_pending_count'], 9)
         self.assertEqual(day['tasks'][:9], pending)
+        self.assertEqual(day['preview_tasks'], pending[:7])
+        self.assertEqual(day['more_count'], 5)
         self.assertEqual((day['pending_count'], day['count'], context['week_task_count']), (9, 12, 12))
         self.assertIn('전체 12개 보기', html)
-        self.assertNotIn('개 더 보기', html)
-        for task in day['tasks']:
+        self.assertIn('+ 5개 더 보기', html)
+        for task in day['preview_tasks']:
             self.assertIn(task.title, html)
+        for task in pending[7:]:
+            self.assertNotIn(task.title, html)
         for title in ('삭제한 일', '날짜 미정인 일', '지난주 일', '다음주 일'):
             self.assertNotIn(title, html)
         response = self.client.get(reverse('day', args=[self.day]))
         self.assertTemplateUsed(response, 'weekly_overview.html')
         self.assertEqual(response.context['week'], context['week'])
+        self.assertContains(response, '남은 일 8')
+        self.assertContains(response, '표시한 일 DONE')
 
     def test_past_counts_are_scoped_to_shown_week_and_today_is_not_past(self):
         self.task('지나간 월요일', task_date=date(2026, 10, 19))
@@ -808,8 +814,22 @@ class WeeklyOverviewTests(TestCase):
             self.assertIn(f'class="week-task status-{status.lower()}"', html)
             self.assertIn(f'data-status-icon="{status}"', html)
         self.assertIn('stroke-dasharray="3 3"', html)
-        self.assertIn('tabindex="0" aria-label="10월 21일 할 일 10개"', html)
+        self.assertIn('aria-label="10월 21일 할 일 10개 중 7개"', html)
         self.assertNotIn('미정인 할 일만', html)
+
+    def test_status_save_refills_the_seven_preview_rows_without_losing_hidden_tasks(self):
+        tasks = [self.task(f'순서 확인 {index}', sort_order=index) for index in range(9)]
+        response = self.client.post(reverse('task_status', args=[tasks[0].pk]),
+            {'status': Task.Status.DONE}, HTTP_HX_REQUEST='true').json()
+        html = response['week_html']
+        self.assertNotIn('순서 확인 0', html)
+        self.assertNotIn('순서 확인 8', html)
+        for index in range(1, 8):
+            self.assertIn(f'순서 확인 {index}', html)
+        self.assertIn('+ 2개 더 보기', html)
+        self.assertIn('전체 9개 보기', html)
+        self.assertIn('aria-label="미정 8개"', html)
+        self.assertEqual(Task.objects.filter(task_date=self.day, deleted_at__isnull=True).count(), 9)
 
     def test_reorder_updates_pending_preview_and_inbox_does_not_replace_week(self):
         first, second = self.task('첫째'), self.task('둘째', sort_order=1)
