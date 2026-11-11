@@ -192,6 +192,7 @@
     const replacement = parsed.querySelector("#day-content");
     const current = document.querySelector("#day-content");
     if (!replacement || !current) return false;
+    window.preservePhotoSelection?.(current, replacement);
     current.replaceWith(replacement);
     if (addHistory) window.history.pushState({}, "", url.toString());
     replacement.querySelector(".day.selected")?.focus();
@@ -235,6 +236,7 @@
   };
 
   const updateDay = async (url, addHistory = true) => {
+    if (window.canLeavePhotoSelection && !window.canLeavePhotoSelection()) return;
     try {
       const response = await fetch(url, {
         credentials: "same-origin",
