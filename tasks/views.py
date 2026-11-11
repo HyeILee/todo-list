@@ -51,6 +51,7 @@ def parse_day(value):
         return timezone.localdate()
 
 TASK_STATUS_ORDER = (Task.Status.PENDING, Task.Status.NOT_DONE, Task.Status.PARTIAL, Task.Status.DONE)
+WEEK_PREVIEW_LIMIT = 7
 
 
 def tasks_in_status_order(tasks, *ordering):
@@ -85,6 +86,8 @@ def weekly_context(selected, tasks=None):
             "count": len(day_tasks),
             "pending_count": sum(task.status == Task.Status.PENDING for task in day_tasks),
             "tasks": day_tasks,
+            "preview_tasks": day_tasks[:WEEK_PREVIEW_LIMIT],
+            "more_count": max(len(day_tasks) - WEEK_PREVIEW_LIMIT, 0),
             "has_record": day in record_dates,
             "selected": day == selected,
             "is_today": day == today,
