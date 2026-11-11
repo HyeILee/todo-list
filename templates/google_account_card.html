@@ -1,0 +1,25 @@
+<section class="passkey-card google-account-card" aria-labelledby="google-account-title">
+  <h2 id="google-account-title">Google 계정 연결</h2>
+  {% if google_account %}
+    <p><strong>연결됨</strong> · {{ google_account.email }}</p>
+    <p>이 Google 계정으로 기존 일정과 기록을 그대로 사용할 수 있어요. 처음 쓰는 브라우저나 IP가 바뀐 곳에서는 패스키로 한 번 더 확인합니다.</p>
+    <details><summary>Google 연결 해제</summary>
+      <p class="hint">위에서 패스키로 본인 확인을 하고 현재 비밀번호를 입력해 주세요. 다른 기기의 Google 로그인도 해제되며, 기존 비밀번호·패스키와 복구 코드는 계속 사용할 수 있어요.</p>
+      <form method="post" action="{% url 'google_unlink' %}">{% csrf_token %}
+        <label for="google-unlink-password">현재 비밀번호</label><input id="google-unlink-password" name="password" type="password" autocomplete="current-password" required>
+        <button class="button quiet" type="submit">Google 연결 해제하기</button>
+      </form>
+    </details>
+  {% elif not google_configured %}
+    <p>연결 준비 중입니다. 준비가 끝나면 이곳에서 본인 Google 계정을 연결할 수 있어요.</p>
+  {% elif not security.enabled %}
+    <p>먼저 패스키 등록과 복구 코드 보관을 마치고 추가 인증을 켜 주세요. 이후 본인 Google 계정 하나를 연결할 수 있어요.</p>
+  {% else %}
+    <p>위에서 패스키로 본인 확인을 하고 현재 비밀번호를 입력한 뒤, 사용할 Google 계정을 직접 선택해 주세요.</p>
+    <p class="hint">로그인 확인에 필요한 계정 정보만 사용합니다. 메일·드라이브·구글 캘린더 접근 권한은 요청하지 않아요.</p>
+    <form method="post" action="{% url 'google_link' %}">{% csrf_token %}
+      <label for="google-link-password">현재 비밀번호</label><input id="google-link-password" name="password" type="password" autocomplete="current-password" required>
+      <button class="button quiet" type="submit">내 Google 계정 연결하기</button>
+    </form>
+  {% endif %}
+</section>

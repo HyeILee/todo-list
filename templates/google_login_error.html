@@ -1,0 +1,3 @@
+{% extends 'base.html' %}
+{% block title %}Google 로그인 확인 · PERSONAL DAY LOG{% endblock %}
+{% block content %}<section class="simple editor"><span class="eyebrow">LOGIN</span><h1>로그인을 다시 확인해 주세요</h1><p class="form-error" role="alert">{{ google_error }}</p><a class="button primary" href="{{ return_url }}">돌아가기</a></section>{% endblock %}

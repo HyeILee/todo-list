@@ -39,7 +39,7 @@
     try {
       const response = await fetch(url, {method: "POST", credentials: "same-origin", signal: controller.signal,
         headers: {"Content-Type": "application/json", "X-CSRFToken": csrf}, body: JSON.stringify(data)});
-      if (response.redirected) throw new Error("로그인 시간이 지났습니다. 비밀번호부터 다시 입력해 주세요.");
+      if (response.redirected) throw new Error("로그인 시간이 지났습니다. 로그인을 다시 시작해 주세요.");
       const type = response.headers.get("Content-Type") || "";
       if (!type.includes("application/json")) throw new Error("요청을 완료하지 못했습니다. 새로고침 후 다시 시도해 주세요.");
       const result = await response.json();

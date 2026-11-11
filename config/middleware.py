@@ -34,7 +34,7 @@ class SecurityHeadersMiddleware:
     def __call__(self, request):
         response = self.get_response(request)
         response["Content-Security-Policy"] = settings.CSP_POLICY
-        response["Referrer-Policy"] = settings.REFERRER_POLICY
+        response.setdefault("Referrer-Policy", settings.REFERRER_POLICY)
         response["X-Content-Type-Options"] = "nosniff"
         response["X-Frame-Options"] = "DENY"
         if (getattr(request, "user", None) and request.user.is_authenticated) or request.path.startswith("/accounts/"):

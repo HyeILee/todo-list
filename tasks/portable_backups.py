@@ -105,10 +105,12 @@ def validate_data_backup(content):
                 raise ValueError
             current_schema = _latest_task_schema(connections["default"])
             compatible_schemas = {current_schema}
-            if current_schema in {"0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys"}:
+            if current_schema in {"0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys", "0010_google_owner_login"}:
                 compatible_schemas.update({"0006_dailyphoto_category", "0007_backupreminder"})
-            if current_schema == "0009_conditional_passkeys":
+            if current_schema in {"0009_conditional_passkeys", "0010_google_owner_login"}:
                 compatible_schemas.add("0008_backup_cycles")
+            if current_schema == "0010_google_owner_login":
+                compatible_schemas.add("0009_conditional_passkeys")
             if manifest.get("db_schema_version") not in compatible_schemas:
                 raise ValueError
             checksums = manifest["sha256"]
