@@ -1,0 +1,40 @@
+{% extends 'base.html' %}
+{% load static %}
+{% block title %}한 달 달력 · PERSONAL DAY LOG{% endblock %}
+{% block body_class %}month-calendar-page{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'month-calendar.css' %}?v=1">{% endblock %}
+{% block content %}
+<section class="month-calendar" aria-labelledby="month-calendar-title">
+  <header class="month-calendar-header">
+    <div><span class="eyebrow">MONTHLY OVERVIEW</span><h1 id="month-calendar-title">한 달의 할 일</h1><p>날짜를 누르면 그날의 할 일과 기록을 볼 수 있어요.</p></div>
+    <form class="month-calendar-controls" method="get" action="{% url 'month_calendar' %}">
+      <a class="icon" href="{% url 'month_calendar' %}?month={{ previous_month|date:'Y-m' }}" aria-label="이전 달">←</a>
+      <label for="calendar-month">표시할 달</label>
+      <input id="calendar-month" name="month" type="month" value="{{ month_first|date:'Y-m' }}" required>
+      <button class="button primary" type="submit">보기</button>
+      <a class="icon" href="{% url 'month_calendar' %}?month={{ next_month|date:'Y-m' }}" aria-label="다음 달">→</a>
+    </form>
+  </header>
+  <div class="month-calendar-key" aria-label="할 일 상태별 색상">
+    <span class="status-pending">{% include 'week_status_icon.html' with status='PENDING' label='' %} 미정</span>
+    <span class="status-not_done">{% include 'week_status_icon.html' with status='NOT_DONE' label='' %} X</span>
+    <span class="status-partial">{% include 'week_status_icon.html' with status='PARTIAL' label='' %} △</span>
+    <span class="status-done">{% include 'week_status_icon.html' with status='DONE' label='' %} O</span>
+  </div>
+  <div class="month-calendar-scroll" role="region" aria-label="{{ month_first|date:'Y년 n월' }} 달력" tabindex="0">
+    <div class="month-calendar-grid">
+      {% for weekday in '월화수목금토일' %}<div class="month-weekday{% if forloop.counter == 6 %} saturday{% elif forloop.counter == 7 %} sunday{% endif %}" aria-hidden="true">{{ weekday }}</div>{% endfor %}
+      {% for day in calendar_days %}
+      <article class="month-day {{ day.calendar_class }}{% if day.outside %} outside{% endif %}{% if day.today %} is-today{% endif %}{% if day.selected %} selected{% endif %}" aria-label="{{ day.date|date:'Y년 n월 j일' }}{% if day.holiday_name %}, {{ day.holiday_name }}{% endif %}, 할 일 {{ day.count }}개">
+        <a class="month-date" href="{% url 'day' day.date|date:'Y-m-d' %}" {% if day.today %}aria-current="date"{% endif %}><time datetime="{{ day.date|date:'Y-m-d' }}">{% if day.outside %}{{ day.date|date:'n.' }}{% endif %}{{ day.date|date:'j' }}</time>{% if day.today %}<span class="month-today">오늘</span>{% endif %}</a>
+        {% if day.holiday_name %}<span class="month-holiday" title="{{ day.holiday_name }}">{{ day.holiday_name }}</span>{% endif %}
+        <ul class="month-task-list">
+          {% for task in day.tasks %}<li class="month-task status-{{ task.status|lower }}"><a href="{% url 'day' day.date|date:'Y-m-d' %}" title="{{ task.category.name }} · {{ task.get_status_display }} · {{ task.title }}">{% include 'week_status_icon.html' with status=task.status label=task.get_status_display %}<span>{% if task.is_important %}★ {% endif %}{{ task.title }}</span></a></li>{% endfor %}
+        </ul>
+        {% if day.more_count %}<a class="month-more" href="{% url 'day' day.date|date:'Y-m-d' %}">+ {{ day.more_count }}개 더 보기</a>{% endif %}
+      </article>
+      {% endfor %}
+    </div>
+  </div>
+</section>
+{% endblock %}

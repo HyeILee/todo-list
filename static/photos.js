@@ -75,7 +75,8 @@
     grid.append(figure);
   }
 
-  function initializeUploader(section) {
+  // Keep the old form working during a rolling static-file update.
+  function initializeLegacyUploader(section) {
     const form = section.querySelector("[data-photo-upload-form]");
     if (!form) return;
     if (form.dataset.uploadInitialized) return;
@@ -129,6 +130,154 @@
     });
   }
 
+  function initializeUploader(section) {
+    const form = section.querySelector("[data-photo-upload-form]");
+    if (!form) return;
+    const list = form.querySelector("[data-photo-queue]");
+    if (!list) { initializeLegacyUploader(section); return; }
+    if (form.dataset.uploadInitialized) return;
+    form.dataset.uploadInitialized = "true";
+    const input = form.querySelector("[data-photo-input]");
+    const category = form.querySelector("[data-photo-category]");
+    const status = form.querySelector("[data-photo-status]");
+    const submit = form.querySelector("button[type=submit]");
+    const retry = form.querySelector("[data-photo-retry]");
+    const queueCount = form.querySelector("[data-queue-count]");
+    const capacity = form.querySelector("[data-photo-capacity]");
+    const choose = section.querySelector("[data-photo-choose]");
+    const countNode = section.querySelector("[data-photo-count]");
+    const grid = section.querySelector("[data-photo-grid]");
+    const limit = Number(section.dataset.photoLimit) || 10;
+    const csrf = form.querySelector("input[name=csrfmiddlewaretoken]").value;
+    const queue = [];
+    let preparing = 0;
+    const element = (tag, className, text) => {
+      const node = document.createElement(tag);
+      if (className) node.className = className;
+      if (text !== undefined) node.textContent = text;
+      return node;
+    };
+    const photoCount = () => grid.querySelectorAll("figure").length;
+    const busy = () => Boolean(section.dataset.photoBusy);
+    const render = () => {
+      const ready = queue.filter(item => item.state === "ready").length;
+      const failed = queue.filter(item => item.state === "failed").length;
+      const locked = busy();
+      section.dataset.photoPending = queue.length || preparing ? "true" : "";
+      list.replaceChildren();
+      for (const item of queue) {
+        const row = element("div", "photo-queue-item");
+        const image = element("img", "photo-queue-thumb");
+        if (item.preview) image.src = item.preview;
+        image.alt = `${item.file.name} 미리보기`;
+        const copy = element("div", "photo-queue-copy");
+        const name = element("span", "photo-queue-name", item.file.name);
+        name.title = item.file.name;
+        const message = item.state === "failed" ? item.error : {
+          reading: "사진을 확인하는 중…", ready: "올릴 준비가 됐어요",
+          preparing: "용량을 줄이는 중…", uploading: "사진을 올리는 중…",
+        }[item.state];
+        const state = element("span", `photo-queue-state${item.state === "failed" ? " is-failed" : ""}`, message);
+        copy.append(name, state);
+        if (["preparing", "uploading"].includes(item.state)) {
+          const progress = element("div", "photo-progress");
+          progress.setAttribute("role", "progressbar");
+          progress.setAttribute("aria-label", `${item.file.name} 처리 중`);
+          progress.setAttribute("aria-valuetext", message);
+          copy.append(progress);
+        }
+        const select = element("select", "photo-queue-category");
+        select.setAttribute("aria-label", `${item.file.name} 사진 분류`);
+        for (const [value, label] of [["LIFE", "Life"], ["WORK", "Work"], ["ETC", "Etc"]]) {
+          const option = element("option", "", label); option.value = value; select.append(option);
+        }
+        select.value = item.category; select.disabled = locked;
+        select.addEventListener("change", () => { if (!busy()) item.category = select.value; });
+        const remove = element("button", "photo-queue-remove", "×");
+        remove.type = "button"; remove.disabled = locked;
+        remove.setAttribute("aria-label", `${item.file.name} 선택 취소`);
+        remove.addEventListener("click", () => {
+          if (busy()) return;
+          queue.splice(queue.indexOf(item), 1); render();
+        });
+        row.append(image, copy, select, remove); list.append(row);
+      }
+      if (!queue.length) list.append(element("p", "photo-queue-empty", "사진을 추가하면 여기에서 먼저 확인할 수 있어요."));
+      queueCount.textContent = `${queue.length}장`;
+      capacity.textContent = `오늘 ${photoCount()} / ${limit}장`;
+      const full = photoCount() + queue.length >= limit;
+      input.disabled = locked || full; category.disabled = locked;
+      if (choose) choose.setAttribute("aria-disabled", String(input.disabled));
+      submit.disabled = locked || preparing > 0 || !ready;
+      submit.hidden = !locked && !ready && failed > 0;
+      submit.textContent = locked ? "올리는 중…" : ready ? `${ready}장 올리기` : "사진 올리기";
+      retry.hidden = !failed; retry.disabled = locked || preparing > 0;
+      retry.classList.toggle("primary", !ready);
+      retry.classList.toggle("quiet", Boolean(ready));
+      if (!queue.length && photoCount() >= limit) status.textContent = "오늘의 사진을 모두 올렸습니다. 사진을 삭제하거나 다른 날짜를 선택해 주세요.";
+    };
+    section.refreshPhotoUploader = render;
+    const addFiles = async files => {
+      if (busy()) return;
+      const available = Math.max(0, limit - photoCount() - queue.length);
+      const selected = Array.from(files);
+      const allowed = selected.filter(file => ["image/jpeg", "image/png", "image/webp"].includes(file.type));
+      const warnings = [];
+      if (allowed.length !== selected.length) warnings.push("JPEG, PNG, WebP 사진을 선택해 주세요.");
+      if (allowed.length > available) warnings.push(`오늘 더 선택할 수 있는 사진은 ${available}장입니다.`);
+      const batch = allowed.slice(0, available).map(file => ({file, category:category.value, state:"reading", preview:"", error:""}));
+      queue.push(...batch); preparing += batch.length;
+      status.textContent = warnings.join(" "); render();
+      await Promise.all(batch.map(item => new Promise(resolve => {
+        const reader = new FileReader();
+        const finish = (preview, error) => {
+          item.preview = preview; item.state = error ? "failed" : "ready"; item.error = error || "";
+          preparing -= 1; render(); resolve();
+        };
+        reader.onload = () => finish(reader.result, "");
+        reader.onerror = reader.onabort = () => finish("", "사진을 읽을 수 없어요. 선택을 취소하고 다시 추가해 주세요.");
+        reader.readAsDataURL(item.file);
+      })));
+    };
+    input.addEventListener("change", async () => { const files = Array.from(input.files || []); input.value = ""; await addFiles(files); });
+    choose?.addEventListener("keydown", event => { if (["Enter", " "].includes(event.key)) { event.preventDefault(); if (!input.disabled) input.click(); } });
+    for (const name of ["dragenter", "dragover"]) form.addEventListener(name, event => { event.preventDefault(); if (!busy()) form.classList.add("is-dragging"); });
+    form.addEventListener("dragleave", event => { if (!form.contains(event.relatedTarget)) form.classList.remove("is-dragging"); });
+    form.addEventListener("drop", event => { event.preventDefault(); form.classList.remove("is-dragging"); addFiles(event.dataTransfer.files); });
+    const upload = async failedOnly => {
+      if (busy() || preparing) return;
+      const batch = queue.filter(item => item.state === (failedOnly ? "failed" : "ready"));
+      if (!batch.length) return;
+      section.dataset.photoBusy = "true";
+      let uploaded = 0;
+      for (const item of batch) {
+        try {
+          item.state = "preparing"; item.error = ""; render();
+          const file = await optimizePhoto(item.file);
+          const data = new FormData(); data.append("photo", file, file.name); data.append("category", item.category);
+          item.state = "uploading"; render();
+          const response = await fetch(form.action, {method:"POST", headers:{"X-CSRFToken":csrf, "X-Requested-With":"XMLHttpRequest"}, body:data, credentials:"same-origin"});
+          if (response.redirected) throw new Error("로그인 상태를 확인한 뒤 다시 시도해 주세요.");
+          const result = await response.json().catch(() => ({}));
+          if (!response.ok) throw new Error(result.error || "사진을 올리지 못했어요. 다시 시도해 주세요.");
+          if (!result.content_url || !result.delete_url) throw new Error("사진 저장 결과를 확인하지 못했어요. 새로고침 후 확인해 주세요.");
+          addPhotoCard(grid, result, csrf); uploaded += 1;
+          if (countNode) countNode.textContent = `${result.count} / ${limit}`;
+          // Remove only acknowledged successes; retries never include them.
+          queue.splice(queue.indexOf(item), 1);
+        } catch (error) { item.state = "failed"; item.error = error.message || "사진을 올리지 못했어요."; }
+        render();
+      }
+      delete section.dataset.photoBusy;
+      const failures = queue.filter(item => item.state === "failed").length;
+      status.textContent = failures ? `${uploaded ? `${uploaded}장은 등록했어요. ` : ""}실패한 ${failures}장만 다시 시도할 수 있어요.` : `사진 ${uploaded}장을 올렸습니다.`;
+      render();
+    };
+    form.addEventListener("submit", event => { event.preventDefault(); upload(false); });
+    retry.addEventListener("click", () => upload(true));
+    render();
+  }
+
   function initializePhotoDeletion(form) {
     if (form.dataset.deleteInitialized) return;
     form.dataset.deleteInitialized = "true";
@@ -168,6 +317,7 @@
           upload.querySelector("button[type=submit]").disabled = false;
           upload.querySelector("[data-photo-status]").textContent = "";
         }
+        section.refreshPhotoUploader?.();
         status.textContent = "사진을 삭제했습니다.";
       } catch (error) {
         status.textContent = error.message;
@@ -289,5 +439,20 @@
   }
 
   window.initializePhotoSections = initializePhotoSections;
+  window.canLeavePhotoSelection = () => {
+    const sections = Array.from(document.querySelectorAll("[data-photo-section]"));
+    if (sections.some(section => section.dataset.photoBusy)) {
+      window.alert("사진을 처리하고 있어요. 끝난 뒤 다른 날짜로 이동해 주세요."); return false;
+    }
+    return !sections.some(section => section.dataset.photoPending) || window.confirm("아직 올리지 않은 사진이 있어요. 선택을 취소하고 다른 날짜로 이동할까요?");
+  };
+  window.preservePhotoSelection = (current, replacement) => {
+    const existing = current.querySelector("[data-photo-section]");
+    const next = replacement.querySelector("[data-photo-section]");
+    if (existing && next && (existing.dataset.photoPending || existing.dataset.photoBusy) && existing.dataset.uploadUrl === next.dataset.uploadUrl) next.replaceWith(existing);
+  };
+  window.addEventListener?.("beforeunload", event => {
+    if (Array.from(document.querySelectorAll("[data-photo-section]")).some(section => section.dataset.photoPending || section.dataset.photoBusy)) { event.preventDefault(); event.returnValue = ""; }
+  });
   initializePhotoSections();
 })();

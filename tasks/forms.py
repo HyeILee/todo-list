@@ -55,8 +55,8 @@ class CategoryForm(AccessibleFormMixin, forms.ModelForm):
 
 
 class DailyRecordForm(AccessibleFormMixin, forms.ModelForm):
-    today_story = forms.CharField(required=False, max_length=2000, label="오늘 하루는", widget=forms.Textarea(attrs={"rows": 6, "data-auto-grow": "620"}))
-    memorable_sentence = forms.CharField(required=False, max_length=2000, label="기억 속 문장", widget=forms.Textarea(attrs={"rows": 6, "data-auto-grow": "520"}))
+    today_story = forms.CharField(required=False, max_length=2000, label="오늘 하루는", widget=forms.Textarea(attrs={"rows": 3, "data-auto-grow": "620"}))
+    memorable_sentence = forms.CharField(required=False, max_length=2000, label="기억 속 문장", widget=forms.Textarea(attrs={"rows": 3, "data-auto-grow": "520"}))
     stayed_with_me = forms.CharField(required=False, max_length=2000, label="유독 내 곁에", widget=forms.Textarea(attrs={"rows": 2, "data-auto-grow": "420"}))
 
     class Meta:

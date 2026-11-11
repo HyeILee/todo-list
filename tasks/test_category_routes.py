@@ -37,7 +37,7 @@ class CategoryRouteTests(TestCase):
 
     def test_select_each_category_using_search_form(self):
         page = self.client.get(reverse('task_list'))
-        self.assertContains(page, '<form method="get" class="filter-panel">', html=False)
+        self.assertContains(page, f'<form method="get" class="filter-panel" action="{reverse("task_list")}">', html=False)
         offered = re.findall('name="categories" value="([^"]+)"', page.content.decode())
         self.assertCountEqual(offered, [str(category.pk) for category in self.categories])
         for category_id in offered:

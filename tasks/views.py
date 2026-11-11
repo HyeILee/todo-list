@@ -111,6 +111,52 @@ def weekly_update(selected, request):
 
 @never_cache
 @login_required
+def month_calendar(request):
+    selected = parse_day(request.GET.get("date"))
+    month_value = request.GET.get("month", "")
+    try:
+        month_first = date.fromisoformat(f"{month_value}-01") if month_value else selected.replace(day=1)
+    except ValueError:
+        month_first = selected.replace(day=1)
+    # Month inputs can submit 0001/9999, where surrounding calendar days overflow.
+    if not 2 <= month_first.year <= 9998:
+        month_first = timezone.localdate().replace(day=1)
+
+    month_last = month_first.replace(day=monthrange(month_first.year, month_first.month)[1])
+    grid_start = week_start(month_first)
+    grid_end = month_last + timedelta(days=6 - month_last.weekday())
+    dates = [grid_start + timedelta(days=i) for i in range((grid_end - grid_start).days + 1)]
+    tasks = tasks_in_status_order(
+        Task.objects.filter(task_date__range=(grid_start, grid_end), deleted_at__isnull=True).select_related("category"),
+        "category__sort_order", "category__name", "sort_order", "created_at",
+    )
+    by_day = {day: [] for day in dates}
+    for task in tasks:
+        by_day[task.task_date].append(task)
+    holidays = dict(Holiday.objects.filter(holiday_date__range=(grid_start, grid_end)).values_list("holiday_date", "name"))
+    today = timezone.localdate()
+    calendar_days = []
+    for day in dates:
+        holiday_name = holidays.get(day, "")
+        day_tasks = by_day[day]
+        calendar_days.append({
+            "date": day, "tasks": day_tasks[:3], "count": len(day_tasks),
+            "more_count": max(0, len(day_tasks) - 3), "outside": day.month != month_first.month,
+            "today": day == today, "selected": day == selected,
+            "holiday_name": holiday_name,
+            "calendar_class": "holiday" if holiday_name else ("saturday" if day.weekday() == 5 else ("sunday" if day.weekday() == 6 else "")),
+        })
+    previous_month = (month_first - timedelta(days=1)).replace(day=1)
+    next_month = month_last + timedelta(days=1)
+    return render(request, "month_calendar.html", {
+        "calendar_days": calendar_days, "month_first": month_first,
+        "previous_month": previous_month, "next_month": next_month,
+        "selected_date": selected, "today": today,
+    })
+
+
+@never_cache
+@login_required
 def dashboard(request, selected_date=None):
     selected = parse_day(selected_date) if selected_date else timezone.localdate()
     start = week_start(selected)

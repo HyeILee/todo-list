@@ -79,11 +79,11 @@
       underline.textContent = "U";
       underline.title = "선택한 문장에 밑줄 · Ctrl+U";
       underline.setAttribute("aria-label", `${field.labels[0]?.textContent || "기록"} 밑줄`);
-      const makeSelect = (label, choices) => {
+      const makeSelect = (label, choices, compactLabel) => {
         const select = document.createElement("select");
         select.setAttribute("aria-label", `${field.labels[0]?.textContent || "기록"} ${label}`);
         select.title = `선택한 문장의 ${label}`;
-        [["", label], ...choices].forEach(([value, text]) => {
+        [["", compactLabel || label], ...choices].forEach(([value, text]) => {
           const option = document.createElement("option");
           option.value = value;
           option.textContent = text;
@@ -91,8 +91,8 @@
         });
         return select;
       };
-      const size = makeSelect("글자 크기", [["small", "작게 (13)"], ["normal", "기본 (16)"], ["large", "크게 (20)"]]);
-      const color = makeSelect("글자 색상", [["default", "검정 (기본)"], ["blue", "파랑"], ["green", "초록"], ["rose", "자주"]]);
+      const size = makeSelect("글자 크기", [["small", "작게 (13)"], ["normal", "기본 (16)"], ["large", "크게 (20)"]], "Aa");
+      const color = makeSelect("글자 색상", [["default", "검정 (기본)"], ["blue", "파랑"], ["green", "초록"], ["rose", "자주"]], "색");
       const feedback = document.createElement("small");
       feedback.className = "note-feedback";
       feedback.setAttribute("role", "status");

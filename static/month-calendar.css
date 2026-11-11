@@ -1,0 +1,37 @@
+.month-calendar-page .page-shell{max-width:1560px;padding-top:28px}
+.month-calendar-header{display:flex;align-items:flex-end;justify-content:space-between;flex-wrap:wrap;gap:20px;margin-bottom:18px}
+.month-calendar-header h1{margin:0;font-size:28px;line-height:1.4}
+.month-calendar-header p{margin:6px 0 0;color:var(--muted);font-size:13px}
+.month-calendar-controls{display:flex;align-items:center;flex-wrap:wrap;gap:8px}
+.month-calendar-controls label{font-size:12px;color:var(--muted)}
+.month-calendar-controls input{min-height:42px;padding:7px 10px;border:1px solid var(--line);border-radius:8px;background:var(--paper);color:var(--ink)}
+.month-calendar-key{display:flex;flex-wrap:wrap;gap:8px;margin-bottom:14px}
+.month-calendar-key>span,.month-task{--status-accent:#5084b4;--status-tint:#eaf2fa;--status-ink:#285f8c}
+.month-calendar-key .status-not_done,.month-task.status-not_done{--status-accent:#cc796b;--status-tint:#faece8;--status-ink:#94483b}
+.month-calendar-key .status-partial,.month-task.status-partial{--status-accent:#c1913d;--status-tint:#faf1dd;--status-ink:#856020}
+.month-calendar-key .status-done,.month-task.status-done{--status-accent:#61966e;--status-tint:#eaf4eb;--status-ink:#356243}
+.month-calendar-key>span{display:inline-flex;align-items:center;gap:5px;padding:5px 8px;border-radius:6px;background:var(--status-tint);color:var(--status-ink);font-size:11px}
+.month-calendar-key .week-status-icon{width:14px;height:14px}
+.month-calendar-scroll{overflow-x:auto;scrollbar-color:#d1bac4 transparent}
+.month-calendar-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr));gap:7px;min-width:770px}
+.month-weekday{padding:9px 12px;text-align:center;color:var(--muted);font-size:12px;font-weight:600}
+.month-weekday.saturday,.month-day.saturday .month-date time{color:#2767b0}
+.month-weekday.sunday,.month-day.sunday .month-date time,.month-day.holiday .month-date time{color:#c3423f}
+.month-day{min-width:0;min-height:155px;padding:9px;border:1px solid var(--line);border-radius:9px;background:var(--paper)}
+.month-day.outside{background:#eee8e891;color:#a3949b}
+.month-day.outside .month-task,.month-day.outside .month-holiday{opacity:.58}
+.month-day.outside .month-date time{color:#a3949b}
+.month-day.selected:not(.outside){border-color:#c5a3b2}
+.month-day.is-today{box-shadow:inset 0 0 0 2px var(--accent)}
+.month-date{display:flex;justify-content:space-between;align-items:center;gap:5px;width:fit-content;min-height:26px;font-size:17px;font-weight:600}
+.month-date:hover{text-decoration:underline;text-underline-offset:3px}
+.month-today{padding:2px 5px;border-radius:4px;background:var(--accent-soft);color:var(--accent-deep);font-size:10px;font-weight:600}
+.month-holiday{display:block;overflow:hidden;margin:1px 0 5px;color:#b85753;text-overflow:ellipsis;white-space:nowrap;font-size:10px}
+.month-task-list{display:grid;gap:4px;min-width:0;margin:6px 0 0;padding:0;list-style:none}
+.month-task{min-width:0;border-left:3px solid var(--status-accent);border-radius:4px;background:var(--status-tint);color:var(--status-ink);font-size:11px}
+.month-task a{display:flex;align-items:center;gap:4px;min-width:0;min-height:26px;padding:4px}
+.month-task .week-status-icon{width:13px;height:13px;flex:none}
+.month-task a span{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.month-more{display:inline-block;margin-top:6px;color:var(--accent);font-size:11px;font-weight:600}
+.month-calendar-scroll:focus-visible{outline:3px solid var(--focus);outline-offset:2px}
+@media(max-width:900px){.month-calendar-page .page-shell{padding:22px 12px 95px}.month-calendar-header h1{font-size:23px}.month-calendar-grid{min-width:770px}}

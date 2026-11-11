@@ -33,3 +33,4 @@ uploads/
 *.pem
 *.key
 .credentials/
+node_modules/
