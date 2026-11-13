@@ -18,7 +18,7 @@ function setup(response = { status: 200, ok: true }) {
   vm.runInNewContext(source, {
     Date: { now: () => now }, Number,
     document: {
-      currentScript: { dataset: { idleSeconds: "1800", activityUrl: "/accounts/activity/" } },
+      currentScript: { dataset: { idleSeconds: "7200", activityUrl: "/accounts/activity/" } },
       body: { dataset: { draftOwner: "7" } }, hidden: false,
       querySelector: () => form, getElementById: () => toast,
       addEventListener: (name, handler) => { events[name] = handler; },
@@ -44,9 +44,12 @@ function setup(response = { status: 200, ok: true }) {
   };
 }
 
-test("idle logout fires once after 30 minutes, including a suspended tab returning", () => {
+test("idle logout waits two hours and fires once when a suspended tab returns", () => {
   const state = setup();
-  state.advance(29 * 60 * 1000);
+  state.advance(30 * 60 * 1000);
+  state.tick();
+  assert.equal(state.submissions, 0);
+  state.advance(89 * 60 * 1000);
   state.tick();
   assert.equal(state.submissions, 0);
   state.advance(60 * 1000);
@@ -57,14 +60,14 @@ test("idle logout fires once after 30 minutes, including a suspended tab returni
 
 test("typing keeps the session alive with a throttled CSRF-protected request", async () => {
   const state = setup();
-  for (let minute = 0; minute < 40; minute++) {
+  for (let minute = 0; minute < 180; minute++) {
     state.advance(60 * 1000);
     state.activity();
     state.tick();
     await flush();
   }
   assert.equal(state.submissions, 0);
-  assert.equal(state.requests.length, 8);
+  assert.equal(state.requests.length, 36);
   assert.equal(state.requests[0].url, "/accounts/activity/");
   assert.equal(state.requests[0].method, "POST");
   assert.equal(state.requests[0].credentials, "same-origin");
@@ -73,16 +76,19 @@ test("typing keeps the session alive with a throttled CSRF-protected request", a
 
 test("activity in another tab prevents an idle tab from logging out the shared session", () => {
   const state = setup();
-  state.advance(29 * 60 * 1000);
+  state.advance(119 * 60 * 1000);
   state.sharedActivity();
   state.advance(2 * 60 * 1000);
   state.tick();
   assert.equal(state.submissions, 0);
+  state.advance(118 * 60 * 1000);
+  state.events.visibilitychange();
+  assert.equal(state.submissions, 1);
 });
 
 test("synthetic events do not extend the idle deadline", () => {
   const state = setup();
-  state.advance(29 * 60 * 1000);
+  state.advance(119 * 60 * 1000);
   state.events.input({ isTrusted: false });
   state.advance(60 * 1000);
   state.tick();

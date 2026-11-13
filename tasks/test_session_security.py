@@ -3,7 +3,7 @@ from datetime import timedelta
 from django.conf import settings
 from django.contrib.auth import get_user_model
 from django.contrib.sessions.models import Session
-from django.test import Client, TestCase
+from django.test import Client, TestCase, override_settings
 from django.urls import reverse
 from django.utils import timezone
 
@@ -27,14 +27,24 @@ class SessionSecurityTests(TestCase):
         self.assertIn("no-store", response["Cache-Control"])
 
     def test_active_session_is_refreshed_but_expired_session_is_not_revived(self):
-        self.assertEqual(settings.SESSION_COOKIE_AGE, 1800)
+        self.assertEqual(settings.SESSION_COOKIE_AGE, 7200)
         session_key = self.client.session.session_key
         Session.objects.filter(session_key=session_key).update(expire_date=timezone.now() + timedelta(seconds=20))
-        self.assertEqual(self.client.post(reverse("session_activity")).status_code, 200)
-        self.assertGreater(Session.objects.get(session_key=session_key).expire_date, timezone.now() + timedelta(minutes=29))
+        response = self.client.post(reverse("session_activity"))
+        self.assertEqual(response.status_code, 200)
+        expiry = Session.objects.get(session_key=session_key).expire_date
+        self.assertGreater(expiry, timezone.now() + timedelta(minutes=119))
+        self.assertLessEqual(expiry, timezone.now() + timedelta(hours=2))
+        self.assertTrue(self.client.session.get_expire_at_browser_close())
+        self.assertEqual(response.cookies[settings.SESSION_COOKIE_NAME]["expires"], "")
         Session.objects.filter(session_key=session_key).update(expire_date=timezone.now() - timedelta(seconds=1))
         self.assertEqual(self.client.post(reverse("session_activity")).status_code, 401)
         self.assertEqual(self.client.get(reverse("home")).status_code, 302)
+
+    def test_browser_idle_timer_matches_the_server_session_lifetime(self):
+        self.assertContains(self.client.get(reverse("home")), 'data-idle-seconds="7200"')
+        with override_settings(SESSION_COOKIE_AGE=3600):
+            self.assertContains(self.client.get(reverse("home")), 'data-idle-seconds="3600"')
 
     def test_unused_admin_routes_are_unavailable(self):
         for url in ("/admin/", "/admin/login/", "/admin/auth/user/"):

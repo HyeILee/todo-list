@@ -27,7 +27,7 @@
 <script src="{% static 'backup-reminder.js' %}?v=2" defer></script>
 <script src="{% static 'app.js' %}?v=10" defer></script>
 <script src="{% static 'notes.js' %}?v=4" defer></script>
-{% if request.user.is_authenticated %}<script src="{% static 'session-security.js' %}" data-activity-url="{% url 'session_activity' %}" data-idle-seconds="1800" defer></script>{% endif %}
+{% if request.user.is_authenticated %}<script src="{% static 'session-security.js' %}?v=2" data-activity-url="{% url 'session_activity' %}" data-idle-seconds="{{ session_idle_seconds }}" defer></script>{% endif %}
 <script src="{% static 'photos.js' %}?v=6" defer></script>
 {% block extra_scripts %}{% endblock %}
 </body>
