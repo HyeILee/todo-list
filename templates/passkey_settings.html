@@ -1,6 +1,6 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}로그인 추가 인증 · To-do List{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{% static 'passkeys.css' %}?v=2">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'passkeys.css' %}?v=3">{% endblock %}
 {% block content %}
 <section class="simple passkey-page" data-passkey-page="settings" data-register-options="{% url 'passkey_register_options' %}" data-register-verify="{% url 'passkey_register_verify' %}" data-auth-options="{% url 'passkey_auth_options' %}" data-auth-verify="{% url 'passkey_auth_verify' %}" data-action="{% url 'login_security_action' %}">
 <a class="back-link" href="{% url 'settings_home' %}">← 설정</a><span class="eyebrow">LOGIN SECURITY</span><h1>로그인 추가 인증</h1>
@@ -16,8 +16,34 @@
 <p class="hint">브라우저가 여는 창에서 본인 기기의 지문·얼굴 인식·PIN을 사용해 주세요. 공용 기기에는 등록하지 마세요.</p><button class="button primary" type="submit" data-needs-passkey>패스키 등록하기</button></form>
 <section class="passkey-card" data-recovery-codes hidden><h2>복구 코드 보관</h2><p>기기를 잃었을 때 로그인 후 추가 확인에 사용할 수 있는 코드입니다. 각 코드는 한 번만 사용할 수 있으며 이 화면에서만 표시됩니다. 별도로 안전하게 보관해 주세요.</p><pre data-recovery-code-text></pre>
 {% if not security.enabled %}<label class="passkey-check"><input type="checkbox" data-codes-saved> 복구 코드를 따로 보관했습니다.</label><label class="passkey-check"><input type="checkbox" data-remember> 이 브라우저를 30일 기억하기</label><p class="hint">공용 기기에서는 기억하지 마세요.</p><button class="button primary" type="button" data-passkey-enable disabled>추가 인증 켜기</button>{% endif %}</section>
-{% if security.enabled %}<section class="passkey-card"><h2>등록과 복구 관리</h2><ul>{% for key in passkeys %}<li>{{ key.label }} · {{ key.created_at|date:'Y.m.d' }}</li>{% empty %}<li>등록한 패스키가 없습니다.</li>{% endfor %}</ul><p>남은 복구 코드: {{ recovery_remaining }}개</p><p class="hint">위에서 본인 확인을 하고 현재 비밀번호를 입력한 뒤 진행해 주세요. 복구 코드로 로그인한 경우에도 새 패스키를 등록할 수 있습니다.</p><div class="form-actions"><button class="button quiet" type="button" data-security-action="codes">복구 코드 다시 만들기</button><button class="button quiet" type="button" data-security-action="forget">기억한 브라우저 모두 해제</button>{% if not google_account %}<button class="button quiet" type="button" data-security-action="disable">추가 인증 끄기</button>{% endif %}</div></section>{% endif %}
+{% if security.enabled %}
+<section class="passkey-card">
+  <h2>등록과 복구 관리</h2>
+  <ul class="passkey-list">
+    {% for key in passkeys %}
+    <li class="passkey-entry" data-passkey-entry>
+      <div class="passkey-device">
+        <strong data-passkey-display-name>{{ key.label }}</strong>
+        <span class="hint">등록 {{ key.created_at|date:'Y.m.d' }}</span>
+      </div>
+      <button class="button quiet" type="button" data-passkey-rename-toggle aria-expanded="false" aria-controls="passkey-name-form-{{ key.pk }}">이름 변경</button>
+      <form class="passkey-name-form" id="passkey-name-form-{{ key.pk }}" data-passkey-rename data-passkey-id="{{ key.pk }}" hidden>
+        <label for="passkey-name-{{ key.pk }}">기기 이름</label>
+        <input id="passkey-name-{{ key.pk }}" name="label" type="text" value="{{ key.label }}" maxlength="60" autocomplete="off" required>
+        <div class="form-actions">
+          <button class="button quiet" type="button" data-passkey-rename-cancel>취소</button>
+          <button class="button primary" type="submit">저장</button>
+        </div>
+      </form>
+    </li>
+    {% empty %}<li>등록한 패스키가 없습니다.</li>{% endfor %}
+  </ul>
+  <p>남은 복구 코드: {{ recovery_remaining }}개</p>
+  <p class="hint">위에서 본인 확인을 하고 현재 비밀번호를 입력한 뒤 진행해 주세요. 복구 코드로 로그인한 경우에도 새 패스키를 등록할 수 있습니다.</p>
+  <div class="form-actions"><button class="button quiet" type="button" data-security-action="codes">복구 코드 다시 만들기</button><button class="button quiet" type="button" data-security-action="forget">기억한 브라우저 모두 해제</button>{% if not google_account %}<button class="button quiet" type="button" data-security-action="disable">추가 인증 끄기</button>{% endif %}</div>
+</section>
+{% endif %}
 {% endif %}
 {% include 'google_account_card.html' %}
 </section>{% endblock %}
-{% block extra_scripts %}<script src="{% static 'passkeys.js' %}?v=2" defer></script>{% endblock %}
+{% block extra_scripts %}<script src="{% static 'passkeys.js' %}?v=3" defer></script>{% endblock %}

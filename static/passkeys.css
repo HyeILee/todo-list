@@ -1,3 +1,12 @@
 .passkey-page{max-width:720px;margin-inline:auto}.passkey-page>p{line-height:1.7}.passkey-page .back-link{display:block;margin-bottom:24px}.passkey-card{margin-top:24px;padding:22px;border:1px solid var(--line,#dedad3);border-radius:16px}.passkey-card h2{margin-top:0;font-size:1.15rem}.passkey-card label:not(.passkey-check){display:block;margin:14px 0 7px}.passkey-card input:not([type=checkbox]){box-sizing:border-box;width:100%;padding:12px;border:1px solid var(--line,#dedad3);border-radius:9px;background:var(--paper,#fff);font:inherit}.passkey-check{display:flex;align-items:center;gap:8px;margin:15px 0}.passkey-check input{width:18px;height:18px;flex:none}.passkey-card pre{font-family:ui-monospace,monospace;font-size:.85rem;white-space:pre-wrap;overflow-wrap:anywhere;background:#f3f1ed;padding:16px;border-radius:8px}.passkey-card .form-actions{flex-wrap:wrap;gap:10px}.passkey-card summary{cursor:pointer;font-weight:600}.passkey-page [hidden]{display:none!important}.passkey-page button:disabled{opacity:.55;cursor:wait}@media(max-width:600px){.passkey-card{padding:16px}.passkey-card pre{font-size:.75rem;padding:12px}}
 
 .google-account-card form button{margin-top:14px}
+
+.passkey-list{list-style:none;margin:0;padding:0}
+.passkey-entry{display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:center;gap:12px;padding:16px 0;border-bottom:1px solid var(--line,#dedad3)}
+.passkey-entry:last-child{border-bottom:0}
+.passkey-device{display:flex;flex-direction:column;gap:5px;min-width:0}
+.passkey-device strong{font-size:.95rem;overflow-wrap:anywhere}
+.passkey-entry .button{min-height:44px}
+.passkey-name-form{grid-column:1/-1;min-width:0;margin:0}
+.passkey-name-form .form-actions{margin-top:12px}

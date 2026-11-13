@@ -408,6 +408,27 @@ def registration_verify(request):
         return fail(str(error))
 
 
+def rename_passkey(user, data):
+    label = data.get("label")
+    if not isinstance(label, str):
+        raise SecurityFailure("기기 이름을 입력해 주세요.")
+    label = label.strip()
+    if not 1 <= len(label) <= 60 or any(ord(character) < 32 or ord(character) == 127 for character in label):
+        raise SecurityFailure("기기 이름은 1~60자의 한 줄로 입력해 주세요.")
+    key_id = data.get("passkey_id")
+    if isinstance(key_id, bool) or not isinstance(key_id, (int, str)):
+        raise SecurityFailure("변경할 기기를 확인해 주세요.")
+    try:
+        key_id = int(key_id)
+    except ValueError:
+        raise SecurityFailure("변경할 기기를 확인해 주세요.")
+    if not 1 <= key_id <= 9223372036854775807:
+        raise SecurityFailure("변경할 기기를 확인해 주세요.")
+    if not Passkey.objects.filter(pk=key_id, user=user, revoked_at__isnull=True).update(label=label):
+        raise SecurityFailure("변경할 기기를 확인해 주세요.")
+    return JsonResponse({"ok": True, "label": label})
+
+
 @login_required
 @require_POST
 @never_cache
@@ -433,6 +454,8 @@ def security_action(request):
                     remember(request, response, request.user, profile)
                 return response
             require_management(request, request.user, profile, data)
+            if action == "rename":
+                return rename_passkey(request.user, data)
             if action == "codes":
                 return JsonResponse({"ok": True, "codes": recovery_codes(request.user, profile)})
             if action not in {"forget", "disable"}:
