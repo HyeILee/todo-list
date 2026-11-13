@@ -2,6 +2,10 @@ from django.utils import timezone
 from django.conf import settings
 
 
+def session_security(request):
+    return {"session_idle_seconds": settings.SESSION_COOKIE_AGE}
+
+
 def backup_warning(request):
     if settings.DATABASES["default"]["ENGINE"] == "django.db.backends.postgresql":
         return {

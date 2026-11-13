@@ -40,7 +40,7 @@ MIDDLEWARE = ["django.middleware.security.SecurityMiddleware", "config.middlewar
 if not REMOTE_OPERATION_APPROVED:
 	MIDDLEWARE.insert(3, "config.middleware.LocalOnlyMiddleware")
 ROOT_URLCONF = "config.urls"
-TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages", "config.context_processors.backup_warning", "config.context_processors.backup_reminder"]}}]
+TEMPLATES = [{"BACKEND": "django.template.backends.django.DjangoTemplates", "DIRS": [BASE_DIR / "templates"], "APP_DIRS": True, "OPTIONS": {"context_processors": ["django.template.context_processors.request", "django.contrib.auth.context_processors.auth", "django.contrib.messages.context_processors.messages", "config.context_processors.backup_warning", "config.context_processors.backup_reminder", "config.context_processors.session_security"]}}]
 WSGI_APPLICATION = "config.wsgi.application"
 DATABASE_PATH = Path(os.environ.get("SQLITE_PATH") or os.environ.get("DATABASE_PATH") or BASE_DIR / "db.sqlite3")
 if not DATABASE_PATH.is_absolute():
@@ -90,7 +90,7 @@ SESSION_COOKIE_HTTPONLY = True
 SESSION_COOKIE_SAMESITE = "Lax"
 SESSION_COOKIE_SECURE = not DEBUG
 SESSION_EXPIRE_AT_BROWSER_CLOSE = True
-SESSION_COOKIE_AGE = 30 * 60
+SESSION_COOKIE_AGE = 2 * 60 * 60
 SESSION_SAVE_EVERY_REQUEST = True
 CSRF_COOKIE_SAMESITE = "Lax"
 CSRF_COOKIE_SECURE = not DEBUG
