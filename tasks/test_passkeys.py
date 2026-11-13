@@ -271,6 +271,86 @@ class PasskeyFlowTests(TestCase):
         self.assertRedirects(old.get(reverse('home')), reverse('login'), fetch_redirect_response=False)
         self.assertNotIn('_auth_user_id', old.session)
 
+    def test_rename_changes_only_label_and_preserves_authentication(self):
+        response = self.enroll(remember=True)
+        key = Passkey.objects.get()
+        key_before = Passkey.objects.values().get(pk=key.pk)
+        profile_before = LoginSecurity.objects.values().get(user=self.user)
+        codes_before = list(RecoveryCode.objects.order_by('pk').values())
+        browsers_before = list(TrustedBrowser.objects.order_by('pk').values())
+        result = self.post('login_security_action', {
+            'action': 'rename', 'passkey_id': str(key.pk),
+            'label': '  개인 노트북 <업무>  ', 'password': self.password,
+        })
+        self.assertEqual(result.status_code, 200, result.content)
+        self.assertEqual(result.json()['label'], '개인 노트북 <업무>')
+        key_before['label'] = '개인 노트북 <업무>'
+        self.assertEqual(Passkey.objects.values().get(pk=key.pk), key_before)
+        self.assertEqual(LoginSecurity.objects.values().get(user=self.user), profile_before)
+        self.assertEqual(list(RecoveryCode.objects.order_by('pk').values()), codes_before)
+        self.assertEqual(list(TrustedBrowser.objects.order_by('pk').values()), browsers_before)
+        self.assertNotIn(COOKIE, result.cookies)
+        page = self.client.get(reverse('login_security'))
+        self.assertContains(page, '개인 노트북 &lt;업무&gt;')
+        self.assertContains(page, '이름 변경')
+        self.client.logout()
+        self.password_login()
+        self.assertEqual(self.login_assertion(count=1).status_code, 200)
+
+    def test_rename_needs_recent_verification_and_current_password(self):
+        self.enroll()
+        key = Passkey.objects.get()
+        data = {'action': 'rename', 'passkey_id': key.pk, 'label': '새 이름'}
+        for password in [None, 'wrong']:
+            self.assertEqual(self.post('login_security_action', {**data, 'password': password}).status_code, 400)
+        session = self.client.session
+        session['dugyeon_mfa_at'] = (timezone.now() - timedelta(seconds=301)).timestamp()
+        session.save()
+        self.assertEqual(self.post('login_security_action', {**data, 'password': self.password}).status_code, 400)
+        key.refresh_from_db()
+        self.assertEqual(key.label, '<fixture>')
+
+    def test_rename_rejects_invalid_labels_and_identifiers(self):
+        self.enroll()
+        key = Passkey.objects.get()
+        data = {'action': 'rename', 'passkey_id': key.pk, 'label': '노트북', 'password': self.password}
+        for label in ['', ' \t ', '가' * 61, None, {}, ['노트북'], '노트북\n새 이름', 'PC\0']:
+            with self.subTest(label=label):
+                self.assertEqual(self.post('login_security_action', {**data, 'label': label}).status_code, 400)
+        for identifier in [None, True, {}, [], 1.5, 'bad', 0, -1, 2**80]:
+            with self.subTest(identifier=identifier):
+                self.assertEqual(self.post('login_security_action', {**data, 'passkey_id': identifier}).status_code, 400)
+        key.refresh_from_db()
+        self.assertEqual(key.label, '<fixture>')
+        self.assertEqual(self.post('login_security_action', {**data, 'label': '가' * 60}).status_code, 200)
+
+    @override_settings(APP_SINGLE_USER=False)
+    def test_rename_cannot_change_another_users_or_revoked_key(self):
+        self.enroll()
+        outsider = get_user_model().objects.create_user(username='another-owner', password=self.password)
+        other_key = Passkey.objects.create(user=outsider, credential_id='other-fixture', public_key=b'other-public', label='다른 기기')
+        data = {'action': 'rename', 'label': '변경 시도', 'password': self.password}
+        self.assertEqual(self.post('login_security_action', {**data, 'passkey_id': other_key.pk}).status_code, 400)
+        other_key.refresh_from_db()
+        self.assertEqual(other_key.label, '다른 기기')
+        key = Passkey.objects.get(user=self.user)
+        key.revoked_at = timezone.now()
+        key.save(update_fields=['revoked_at'])
+        self.assertEqual(self.post('login_security_action', {**data, 'passkey_id': key.pk}).status_code, 400)
+
+    def test_rename_requires_login_post_and_csrf(self):
+        self.enroll()
+        key = Passkey.objects.get()
+        data = {'action': 'rename', 'passkey_id': key.pk, 'label': '노트북', 'password': self.password}
+        self.assertEqual(self.client.get(reverse('login_security_action')).status_code, 405)
+        strict = Client(enforce_csrf_checks=True)
+        strict.cookies.update(self.client.cookies)
+        self.assertEqual(self.post('login_security_action', data, strict).status_code, 403)
+        self.client.logout()
+        self.assertEqual(self.post('login_security_action', data).status_code, 302)
+        key.refresh_from_db()
+        self.assertEqual(key.label, '<fixture>')
+
     def test_management_requires_recent_verification_and_password(self):
         response = self.enroll(remember=True)
         other = Client(HTTP_USER_AGENT='Fixture browser'); other.cookies[COOKIE] = response.cookies[COOKIE].value

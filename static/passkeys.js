@@ -108,6 +108,50 @@
     done(await post(page.dataset.action, {action: "enable", codes_saved: page.querySelector("[data-codes-saved]").checked,
       remember: page.querySelector("[data-remember]").checked}));
   }));
+  page.querySelectorAll("[data-passkey-rename]").forEach(form => {
+    const entry = form.closest("[data-passkey-entry]");
+    const toggle = entry.querySelector("[data-passkey-rename-toggle]");
+    const display = entry.querySelector("[data-passkey-display-name]");
+    const input = form.querySelector('[name="label"]');
+    const close = () => {
+      input.value = display.textContent;
+      form.hidden = true;
+      toggle.setAttribute("aria-expanded", "false");
+      toggle.focus();
+    };
+    toggle.addEventListener("click", () => {
+      if (!form.hidden) { close(); return; }
+      input.value = display.textContent;
+      form.hidden = false;
+      toggle.setAttribute("aria-expanded", "true");
+      input.focus();
+      input.select();
+    });
+    form.querySelector("[data-passkey-rename-cancel]").addEventListener("click", close);
+    form.addEventListener("keydown", event => {
+      if (event.key === "Escape") { event.preventDefault(); close(); }
+    });
+    form.addEventListener("submit", async event => {
+      event.preventDefault();
+      await run(async () => {
+        if (!input.value.trim()) throw new Error("기기 이름을 입력해 주세요.");
+        const password = page.querySelector("#security-password");
+        let result;
+        try {
+          result = await post(page.dataset.action, {
+            action: "rename", passkey_id: form.dataset.passkeyId,
+            label: input.value, password: password?.value || "",
+          });
+        } finally { if (password) password.value = ""; }
+        display.textContent = result.label;
+        input.value = result.label;
+        form.hidden = true;
+        toggle.setAttribute("aria-expanded", "false");
+        status.textContent = "기기 이름을 변경했습니다.";
+      });
+      if (form.hidden) toggle.focus();
+    });
+  });
   page.querySelectorAll("[data-security-action]").forEach(button => button.addEventListener("click", () => {
     const action = button.dataset.securityAction;
     const message = action === "disable" ? "추가 인증을 끄고 등록한 패스키와 복구 코드를 해제할까요?"
