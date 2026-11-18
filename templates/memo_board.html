@@ -1,17 +1,42 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}메모장 · PERSONAL DAY LOG{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=2">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=3">{% endblock %}
 {% block content %}
 <section class="memo-page">
-  <header class="section-top"><div><h1>메모장</h1><p class="hint">잊고 싶지 않은 것들을 붙여 두세요.</p></div><a class="button primary" href="#new-memo">메모 쓰기</a></header>
+  <header class="section-top memo-heading">
+    <div><h1>메모장</h1><p class="hint">잊고 싶지 않은 것들을 붙여 두세요.</p></div>
+    <a class="button primary memo-write" href="#new-memo" data-memo-open><span aria-hidden="true">＋</span> 메모 쓰기</a>
+  </header>
   <div class="memo-board">
-    {% for note in notes %}
-    <article class="sticky-note sticky-{{ note.color }}">
-      <div class="memo-content">{{ note.content }}</div>
-      <footer><time datetime="{{ note.updated_at|date:'c' }}">{{ note.updated_at|date:'Y.m.d' }}</time><span><a href="{% url 'memo_edit' note.id %}" aria-label="메모 {{ forloop.counter }} 수정">수정</a><a href="{% url 'memo_delete' note.id %}" aria-label="메모 {{ forloop.counter }} 삭제">삭제</a></span></footer>
-    </article>
-    {% empty %}<p class="memo-empty">아직 붙여 둔 메모가 없어요.<br>아래에서 첫 메모를 적어 보세요.</p>{% endfor %}
-    <section class="memo-compose" id="new-memo" aria-labelledby="new-memo-title"><h2 id="new-memo-title">새 메모</h2><form method="post">{% csrf_token %}{{ form.non_field_errors }}<label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>{{ form.content }}{{ form.content.errors }}<label for="{{ form.color.id_for_label }}">{{ form.color.label }}</label>{{ form.color }}{{ form.color.errors }}<button class="button primary" type="submit">붙이기</button></form></section>
+    <div class="memo-notes">
+      {% for note in notes %}
+      <article class="sticky-note sticky-{{ note.color }}">
+        <div class="memo-content">{{ note.content }}</div>
+        <footer>
+          <time datetime="{{ note.updated_at|date:'c' }}" title="{{ note.updated_at|date:'Y.m.d' }}">{{ note.updated_at|date:'m.d' }}</time>
+          <details class="memo-menu">
+            <summary aria-label="메모 {{ forloop.counter }} 관리"><span aria-hidden="true">···</span></summary>
+            <div class="memo-menu-items"><a href="{% url 'memo_edit' note.id %}">수정</a><a href="{% url 'memo_delete' note.id %}">삭제</a></div>
+          </details>
+        </footer>
+      </article>
+      {% empty %}<div class="memo-empty"><p>아직 붙여 둔 메모가 없어요.</p><a href="#new-memo" data-memo-open>첫 메모 쓰기</a></div>{% endfor %}
+    </div>
   </div>
+  <details class="memo-compose-fallback" id="new-memo" {% if form.errors %}open{% endif %}>
+    <summary>새 메모 쓰기</summary>
+    <section class="memo-compose" data-memo-compose {% if form.errors %}data-has-errors{% endif %}>
+      <header class="memo-compose-heading"><h2 id="new-memo-title">새 메모</h2><button type="button" class="memo-close" data-memo-close hidden aria-label="작성 창 닫기">×</button></header>
+      <form method="post">
+        {% csrf_token %}{{ form.non_field_errors }}
+        <label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>
+        {{ form.content }}{{ form.content.errors }}
+        <label for="{{ form.color.id_for_label }}">{{ form.color.label }}</label>
+        {{ form.color }}{{ form.color.errors }}
+        <div class="memo-compose-actions"><button class="button primary" type="submit">보드에 붙이기</button></div>
+      </form>
+    </section>
+  </details>
 </section>
 {% endblock %}
+{% block extra_scripts %}<script src="{% static 'memo-board.js' %}?v=1" defer></script>{% endblock %}
