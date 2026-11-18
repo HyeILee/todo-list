@@ -1,4 +1,7 @@
 .memo-page { max-width: 1200px; margin: 0 auto; }
+.memo-page > .section-top { align-items: center; flex-wrap: wrap; gap: 16px 24px; margin-bottom: 28px; }
+.memo-page > .section-top .hint { margin: 8px 0 0; line-height: 1.6; }
+.memo-page > .section-top > .button { flex-shrink: 0; min-height: 44px; padding: 10px 18px; }
 .memo-board { display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 30px; align-items: start; padding: 36px 28px; border: 1px solid #e7dce0; border-radius: 18px; background-color: #f0e5e8; background-image: radial-gradient(#cdbbc3 0.7px, transparent 0.7px); background-size: 12px 12px; }
 .sticky-note { position: relative; padding: 34px 22px 18px; min-width: 0; min-height: 220px; box-shadow: 2px 7px 12px #60445116; border-radius: 2px 2px 18px 2px; background: #f7dce3; color: #4b3f44; }
 .sticky-note::before { content: ''; position: absolute; width: 70px; height: 22px; top: -10px; left: calc(50% - 35px); background: #fff9e0ad; transform: rotate(-4deg); border: 1px solid #ffffff80; }
@@ -18,4 +21,4 @@
 .memo-editor { max-width: 620px; margin: 20px auto; }
 .memo-editor > .sticky-note { margin: 24px 0; }
 .memo-compose .errorlist, .memo-editor .errorlist { color: #a33249; padding-left: 20px; }
-@media (max-width: 600px) { .memo-board { grid-template-columns: 1fr; padding: 28px 18px; gap: 28px; } }
+@media (max-width: 600px) { .memo-page > .section-top { gap: 16px; margin-bottom: 24px; } .memo-board { grid-template-columns: 1fr; padding: 28px 18px; gap: 28px; } }
