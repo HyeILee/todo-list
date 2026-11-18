@@ -167,12 +167,13 @@ class PortablePhotoBackupTests(TransactionTestCase):
         archive, _ = create_data_backup()
         with zipfile.ZipFile(BytesIO(archive)) as original:
             files = {name: original.read(name) for name in original.namelist()}
-        data = [row for row in json.loads(files["data.json"]) if row["model"] != "tasks.dailyphoto"]
+        data = [row for row in json.loads(files["data.json"]) if row["model"] not in {"tasks.dailyphoto", "tasks.stickynote"}]
         files["data.json"] = json.dumps(data).encode()
         manifest = json.loads(files["manifest.json"])
         manifest["format"] = "dugyeon-data-v1"
         manifest["db_schema_version"] = "0006_dailyphoto_category"
         manifest["counts"].pop("tasks.dailyphoto")
+        manifest["counts"].pop("tasks.stickynote")
         manifest["sha256"]["data.json"] = hashlib.sha256(files["data.json"]).hexdigest()
         files["manifest.json"] = json.dumps(manifest).encode()
         buffer = BytesIO()

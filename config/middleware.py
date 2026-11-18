@@ -72,7 +72,7 @@ class ErrorIdMiddleware:
 
 
 class DailyBackupBeforeChangeMiddleware:
-    WRITE_PREFIXES = ("/tasks/", "/records/", "/categories/")
+    WRITE_PREFIXES = ("/tasks/", "/records/", "/categories/", "/memos/")
 
     def __init__(self, get_response):
         self.get_response = get_response

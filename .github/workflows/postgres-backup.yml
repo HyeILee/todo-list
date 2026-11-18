@@ -78,6 +78,7 @@ jobs:
           python manage.py test
           tasks.test_passkeys
           tasks.test_session_security
+          tasks.test_memos
           tasks.test_postgres
           tasks.test_task_import
           tasks.test_backup_cycles

@@ -265,6 +265,8 @@ def validate_backup_archive(archive_bytes):
             raise BackupValidationError(f"{filename}의 SHA-256 해시가 일치하지 않습니다.")
     current_schema = _latest_task_schema(connections["default"])
     compatible_schemas = {current_schema}
+    if current_schema == "0011_stickynote":
+        compatible_schemas.update({"0009_conditional_passkeys", "0010_google_owner_login"})
     if current_schema == "0007_backupreminder":
         compatible_schemas.add("0006_dailyphoto_category")
     if current_schema == "0010_google_owner_login":
@@ -352,3 +354,4 @@ def restore_database_archive(archive_bytes):
         staged_database_path.unlink(missing_ok=True)
         raise
     return manifest["counts"]
+

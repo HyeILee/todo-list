@@ -16,13 +16,14 @@ from django.utils import timezone
 
 from .backups import BackupValidationError, MAX_ARCHIVE_SIZE, _latest_task_schema
 from .exports import csv_for_records, csv_for_tasks, workbook_for_records, workbook_for_tasks
-from .models import Category, DailyPhoto, DailyRecord, Task, TaskStatusHistory
+from .models import Category, DailyPhoto, DailyRecord, Task, TaskStatusHistory, StickyNote
 from urllib.parse import urlparse
 
 
-FORMAT = "dugyeon-data-v2"
+FORMAT = "dugyeon-data-v3"
 LEGACY_MODELS = (Category, Task, TaskStatusHistory, DailyRecord)
-MODELS = (*LEGACY_MODELS, DailyPhoto)
+PHOTO_MODELS = (*LEGACY_MODELS, DailyPhoto)
+MODELS = (*PHOTO_MODELS, StickyNote)
 DATA_FILES = {"data.json", "tasks.xlsx", "tasks.csv", "records.xlsx", "records.csv"}
 
 
@@ -101,10 +102,12 @@ def validate_data_backup(content):
             if sum(entry.file_size for entry in entries) > MAX_ARCHIVE_SIZE or any(entry.flag_bits & 1 for entry in entries):
                 raise ValueError
             manifest = json.loads(archive.read("manifest.json"))
-            if manifest.get("format") not in {FORMAT, "dugyeon-data-v1"} or manifest.get("scope") != "schedule-data-only":
+            if manifest.get("format") not in {FORMAT, "dugyeon-data-v1", "dugyeon-data-v2"} or manifest.get("scope") != "schedule-data-only":
                 raise ValueError
             current_schema = _latest_task_schema(connections["default"])
             compatible_schemas = {current_schema}
+            if current_schema == "0011_stickynote":
+                compatible_schemas.update({"0006_dailyphoto_category", "0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys", "0010_google_owner_login"})
             if current_schema in {"0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys", "0010_google_owner_login"}:
                 compatible_schemas.update({"0006_dailyphoto_category", "0007_backupreminder"})
             if current_schema in {"0009_conditional_passkeys", "0010_google_owner_login"}:
@@ -120,7 +123,7 @@ def validate_data_backup(content):
             if any(not isinstance(checksums[name], str) or not hmac.compare_digest(hashlib.sha256(value).hexdigest(), checksums[name]) for name, value in files.items()):
                 raise ValueError
         raw = json.loads(files["data.json"])
-        models = LEGACY_MODELS if manifest["format"] == "dugyeon-data-v1" else MODELS
+        models = {"dugyeon-data-v1": LEGACY_MODELS, "dugyeon-data-v2": PHOTO_MODELS, FORMAT: MODELS}[manifest["format"]]
         allowed = {model._meta.label_lower: model for model in models}
         counts = dict.fromkeys(allowed, 0)
         seen = set()
@@ -191,3 +194,4 @@ def restore_validated_data(objects):
                 if type(item.object) is model:
                     item.save()
         connections["default"].check_constraints()
+

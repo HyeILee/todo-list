@@ -1,0 +1,4 @@
+{% extends 'base.html' %}{% load static %}
+{% block title %}메모 삭제 · PERSONAL DAY LOG{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}">{% endblock %}
+{% block content %}<section class="memo-editor"><h1>이 메모를 삭제할까요?</h1>{% if error %}<p role="alert">{{ error }}</p>{% endif %}<article class="sticky-note sticky-{{ note.color }}"><div class="memo-content">{{ note.content }}</div></article><form method="post">{% csrf_token %}<input type="hidden" name="version" value="{{ note.updated_at|date:'c' }}"><div class="form-actions"><a class="button" href="{% url 'memo_board' %}">취소</a><button class="button danger" type="submit">삭제</button></div></form></section>{% endblock %}

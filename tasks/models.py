@@ -243,3 +243,16 @@ class PasskeyChallenge(models.Model):
     challenge = models.BinaryField()
     expires_at = models.DateTimeField()
     consumed_at = models.DateTimeField(null=True, blank=True)
+
+
+class StickyNote(models.Model):
+    COLORS = [("rose", "연분홍"), ("cream", "크림"), ("lavender", "연보라"), ("mint", "민트")]
+    id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
+    content = models.TextField(validators=[MaxLengthValidator(3000)])
+    color = models.CharField(max_length=12, choices=COLORS, default="rose")
+    created_at = models.DateTimeField(auto_now_add=True)
+    updated_at = models.DateTimeField(auto_now=True)
+
+    class Meta:
+        ordering = ["-created_at", "id"]
+
