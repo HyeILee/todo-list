@@ -20,11 +20,11 @@
           <time datetime="{{ note.updated_at|date:'c' }}" title="{{ note.updated_at|date:'Y.m.d' }}">{{ note.updated_at|date:'m.d' }}</time>
           <details class="memo-menu">
             <summary aria-label="메모 {{ forloop.counter }} 관리"><span aria-hidden="true">···</span></summary>
-            <div class="memo-menu-items"><form method="post" action="{% url 'memo_move' note.id %}">{% csrf_token %}<input type="hidden" name="version" value="{{ note.updated_at|date:'c' }}"><input type="hidden" name="action" value="{% if archived %}pin{% else %}archive{% endif %}"><button type="submit">{% if archived %}보드에 붙이기{% else %}보관하기{% endif %}</button></form><a href="{% url 'memo_edit' note.id %}">수정</a><a href="{% url 'memo_delete' note.id %}">삭제</a></div>
+            <div class="memo-menu-items"><form method="post" action="{% url 'memo_move' note.id %}">{% csrf_token %}<input type="hidden" name="version" value="{{ note.updated_at|date:'c' }}"><input type="hidden" name="action" value="{% if archived %}pin{% else %}archive{% endif %}"><button type="submit">{% if archived %}보드에 붙이기{% else %}보관{% endif %}</button></form><a href="{% url 'memo_edit' note.id %}">수정</a><a href="{% url 'memo_delete' note.id %}">삭제</a></div>
           </details>
         </footer>
       </article>
-      {% empty %}<div class="memo-empty">{% if archived %}<p>보관한 쪽지가 없어요.</p><p>보드의 쪽지에서 ··· → 보관하기를 눌러 옮길 수 있어요.</p>{% else %}<p>아직 붙여 둔 메모가 없어요.</p><a href="#new-memo" data-memo-open>첫 메모 쓰기</a>{% endif %}</div>{% endfor %}
+      {% empty %}<div class="memo-empty">{% if archived %}<p>보관한 쪽지가 없어요.</p><p>보드의 쪽지에서 ··· → 보관를 눌러 옮길 수 있어요.</p>{% else %}<p>아직 붙여 둔 메모가 없어요.</p><a href="#new-memo" data-memo-open>첫 메모 쓰기</a>{% endif %}</div>{% endfor %}
     </div>
   </div>
   <details class="memo-compose-fallback" id="new-memo" {% if form.errors %}open{% endif %}>
