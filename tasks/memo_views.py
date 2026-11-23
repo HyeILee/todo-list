@@ -5,7 +5,7 @@ from django.utils.dateparse import parse_datetime
 from django.shortcuts import get_object_or_404, redirect, render
 from django.utils import timezone
 from django.views.decorators.cache import never_cache
-from django.views.decorators.http import require_http_methods
+from django.views.decorators.http import require_http_methods, require_POST
 
 from .models import StickyNote
 
@@ -29,7 +29,12 @@ def memo_board(request):
         form.save()
         messages.success(request, "메모를 붙였어요.")
         return redirect("memo_board")
-    return render(request, "memo_board.html", {"notes": StickyNote.objects.all(), "form": form})
+    archived = request.GET.get("view") == "archive"
+    return render(request, "memo_board.html", {
+        "notes": StickyNote.objects.filter(is_archived=archived), "form": form, "archived": archived,
+        "board_count": StickyNote.objects.filter(is_archived=False).count(),
+        "archive_count": StickyNote.objects.filter(is_archived=True).count(),
+    })
 
 
 @login_required
@@ -68,3 +73,28 @@ def memo_delete(request, note_id):
                 return redirect("memo_board")
         error = "메모가 변경됐어요. 내용을 다시 확인한 뒤 삭제해 주세요."
     return render(request, "memo_delete.html", {"note": note, "error": error}, status=409 if error else 200)
+
+
+@login_required
+@never_cache
+@require_POST
+def memo_move(request, note_id):
+    note = get_object_or_404(StickyNote, pk=note_id)
+    action = request.POST.get("action")
+    if action not in {"archive", "pin"}:
+        from django.http import HttpResponseBadRequest
+        return HttpResponseBadRequest("이동할 위치를 확인해 주세요.")
+    try:
+        version = parse_datetime(request.POST.get("version", ""))
+    except ValueError:
+        version = None
+    updated = StickyNote.objects.filter(pk=note.pk, updated_at=version).update(
+        is_archived=action == "archive", updated_at=timezone.now())
+    if updated:
+        messages.success(request, "쪽지를 보관했어요." if action == "archive" else "쪽지를 보드에 붙였어요.")
+    else:
+        messages.warning(request, "다른 화면에서 쪽지가 변경됐어요. 내용을 확인한 뒤 다시 이동해 주세요.")
+    response = redirect("memo_board")
+    if action == "pin":
+        response["Location"] += "?view=archive"
+    return response

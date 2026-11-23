@@ -106,7 +106,9 @@ def validate_data_backup(content):
                 raise ValueError
             current_schema = _latest_task_schema(connections["default"])
             compatible_schemas = {current_schema}
-            if current_schema == "0011_stickynote":
+            if current_schema == "0012_stickynote_is_archived":
+                compatible_schemas.add("0011_stickynote")
+            if current_schema in {"0011_stickynote", "0012_stickynote_is_archived"}:
                 compatible_schemas.update({"0006_dailyphoto_category", "0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys", "0010_google_owner_login"})
             if current_schema in {"0007_backupreminder", "0008_backup_cycles", "0009_conditional_passkeys", "0010_google_owner_login"}:
                 compatible_schemas.update({"0006_dailyphoto_category", "0007_backupreminder"})
@@ -134,6 +136,9 @@ def validate_data_backup(content):
                 raise ValueError
             model = allowed[row["model"]]
             fields = {field.name for field in model._meta.local_fields if not field.primary_key}
+            if (model is StickyNote and manifest.get("db_schema_version") == "0011_stickynote"
+                    and isinstance(row["fields"], dict) and set(row["fields"]) == fields - {"is_archived"}):
+                row["fields"]["is_archived"] = False
             if not isinstance(row["fields"], dict) or set(row["fields"]) != fields:
                 raise ValueError
             identity = (row["model"], str(row["pk"]))
@@ -143,7 +148,7 @@ def validate_data_backup(content):
             counts[row["model"]] += 1
         if counts != manifest.get("counts"):
             raise ValueError
-        objects = ValidatedObjects(serializers.deserialize("json", files["data.json"]), models)
+        objects = ValidatedObjects(serializers.deserialize("json", json.dumps(raw)), models)
         ids = {model: {item.object.pk for item in objects if type(item.object) is model} for model in models}
         if any(len(ids[model]) != counts[model._meta.label_lower] for model in models):
             raise ValueError

@@ -1,12 +1,16 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}메모장 · PERSONAL DAY LOG{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=3">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=4">{% endblock %}
 {% block content %}
 <section class="memo-page">
   <header class="section-top memo-heading">
     <div><h1>메모장</h1><p class="hint">잊고 싶지 않은 것들을 붙여 두세요.</p></div>
     <a class="button primary memo-write" href="#new-memo" data-memo-open><span aria-hidden="true">＋</span> 메모 쓰기</a>
   </header>
+  <nav class="memo-tabs" aria-label="쪽지 위치">
+    <a href="{% url 'memo_board' %}" {% if not archived %}aria-current="page"{% endif %}>보드 <span>{{ board_count }}</span></a>
+    <a href="{% url 'memo_board' %}?view=archive" {% if archived %}aria-current="page"{% endif %}>보관함 <span>{{ archive_count }}</span></a>
+  </nav>
   <div class="memo-board">
     <div class="memo-notes">
       {% for note in notes %}
@@ -16,18 +20,18 @@
           <time datetime="{{ note.updated_at|date:'c' }}" title="{{ note.updated_at|date:'Y.m.d' }}">{{ note.updated_at|date:'m.d' }}</time>
           <details class="memo-menu">
             <summary aria-label="메모 {{ forloop.counter }} 관리"><span aria-hidden="true">···</span></summary>
-            <div class="memo-menu-items"><a href="{% url 'memo_edit' note.id %}">수정</a><a href="{% url 'memo_delete' note.id %}">삭제</a></div>
+            <div class="memo-menu-items"><form method="post" action="{% url 'memo_move' note.id %}">{% csrf_token %}<input type="hidden" name="version" value="{{ note.updated_at|date:'c' }}"><input type="hidden" name="action" value="{% if archived %}pin{% else %}archive{% endif %}"><button type="submit">{% if archived %}보드에 붙이기{% else %}보관하기{% endif %}</button></form><a href="{% url 'memo_edit' note.id %}">수정</a><a href="{% url 'memo_delete' note.id %}">삭제</a></div>
           </details>
         </footer>
       </article>
-      {% empty %}<div class="memo-empty"><p>아직 붙여 둔 메모가 없어요.</p><a href="#new-memo" data-memo-open>첫 메모 쓰기</a></div>{% endfor %}
+      {% empty %}<div class="memo-empty">{% if archived %}<p>보관한 쪽지가 없어요.</p><p>보드의 쪽지에서 ··· → 보관하기를 눌러 옮길 수 있어요.</p>{% else %}<p>아직 붙여 둔 메모가 없어요.</p><a href="#new-memo" data-memo-open>첫 메모 쓰기</a>{% endif %}</div>{% endfor %}
     </div>
   </div>
   <details class="memo-compose-fallback" id="new-memo" {% if form.errors %}open{% endif %}>
     <summary>새 메모 쓰기</summary>
     <section class="memo-compose" data-memo-compose {% if form.errors %}data-has-errors{% endif %}>
       <header class="memo-compose-heading"><h2 id="new-memo-title">새 메모</h2><button type="button" class="memo-close" data-memo-close hidden aria-label="작성 창 닫기">×</button></header>
-      <form method="post">
+      <form method="post" action="{% url 'memo_board' %}">
         {% csrf_token %}{{ form.non_field_errors }}
         <label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>
         {{ form.content }}{{ form.content.errors }}

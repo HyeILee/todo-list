@@ -72,3 +72,51 @@ class MemoTests(TransactionTestCase):
         objects, _ = validate_data_backup(output.getvalue())
         restore_validated_data(objects)
         self.assertTrue(StickyNote.objects.filter(pk=note.pk).exists())
+
+    def test_archive_and_pin_are_post_only_versioned_and_persistent(self):
+        note = StickyNote.objects.create(content="보관할 쪽지")
+        move = reverse("memo_move", args=[note.pk])
+        version = note.updated_at.isoformat()
+        self.assertEqual(self.client.get(move).status_code, 405)
+        protected = Client(enforce_csrf_checks=True)
+        protected.force_login(self.user)
+        self.assertEqual(protected.post(move, {"action": "archive", "version": version}).status_code, 403)
+        self.assertEqual(self.client.post(move, {"action": "archive", "version": version}).status_code, 302)
+        note.refresh_from_db()
+        self.assertTrue(note.is_archived)
+        self.assertNotContains(self.client.get(reverse("memo_board")), note.content)
+        self.assertContains(self.client.get(reverse("memo_board") + "?view=archive"), note.content)
+        self.client.post(move, {"action": "pin", "version": version})
+        note.refresh_from_db()
+        self.assertTrue(note.is_archived)
+        archive, _ = create_data_backup()
+        objects, _ = validate_data_backup(archive)
+        restore_validated_data(objects)
+        note.refresh_from_db()
+        self.assertTrue(note.is_archived)
+        self.client.post(move, {"action": "pin", "version": note.updated_at.isoformat()})
+        note.refresh_from_db()
+        self.assertFalse(note.is_archived)
+        self.assertContains(self.client.get(reverse("memo_board")), note.content)
+
+    def test_old_memo_backup_defaults_to_visible_board(self):
+        note = StickyNote.objects.create(content="예전 쪽지")
+        archive, _ = create_data_backup()
+        with ZipFile(BytesIO(archive)) as source:
+            files = {name: source.read(name) for name in source.namelist()}
+        rows = json.loads(files["data.json"])
+        for row in rows:
+            if row["model"] == "tasks.stickynote":
+                del row["fields"]["is_archived"]
+        files["data.json"] = json.dumps(rows).encode()
+        manifest = json.loads(files["manifest.json"])
+        manifest["db_schema_version"] = "0011_stickynote"
+        manifest["sha256"]["data.json"] = hashlib.sha256(files["data.json"]).hexdigest()
+        files["manifest.json"] = json.dumps(manifest).encode()
+        output = BytesIO()
+        with ZipFile(output, "w", ZIP_DEFLATED) as dest:
+            for name, content in files.items():
+                dest.writestr(name, content)
+        objects, _ = validate_data_backup(output.getvalue())
+        restore_validated_data(objects)
+        self.assertFalse(StickyNote.objects.get(pk=note.pk).is_archived)

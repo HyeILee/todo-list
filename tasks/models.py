@@ -246,6 +246,7 @@ class PasskeyChallenge(models.Model):
 
 
 class StickyNote(models.Model):
+    is_archived = models.BooleanField(default=False)
     COLORS = [("rose", "연분홍"), ("cream", "크림"), ("lavender", "연보라"), ("mint", "민트")]
     id = models.UUIDField(primary_key=True, default=uuid.uuid4, editable=False)
     content = models.TextField(validators=[MaxLengthValidator(3000)])

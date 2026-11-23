@@ -1,4 +1,4 @@
 {% extends 'base.html' %}{% load static %}
 {% block title %}메모 수정 · PERSONAL DAY LOG{% endblock %}
-{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=3">{% endblock %}
+{% block extra_styles %}<link rel="stylesheet" href="{% static 'memo-board.css' %}?v=4">{% endblock %}
 {% block content %}<section class="memo-editor"><h1>메모 수정</h1><form method="post">{% csrf_token %}{{ form.non_field_errors }}{{ form.version }}{{ form.version.errors }}<label for="{{ form.content.id_for_label }}">{{ form.content.label }}</label>{{ form.content }}{{ form.content.errors }}<label for="{{ form.color.id_for_label }}">{{ form.color.label }}</label>{{ form.color }}{{ form.color.errors }}<div class="form-actions"><button class="button primary" type="submit">저장</button><a class="button" href="{% url 'memo_board' %}">메모장으로</a></div></form></section>{% endblock %}
